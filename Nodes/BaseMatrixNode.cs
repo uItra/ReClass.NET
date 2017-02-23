@@ -5,12 +5,12 @@ namespace ReClassNET.Nodes
 {
 	public abstract class BaseMatrixNode : BaseNode
 	{
-		public BaseMatrixNode()
+		protected BaseMatrixNode()
 		{
 			levelsOpen.DefaultValue = true;
 		}
 
-		protected delegate void DrawMatrixValues(ref int x, ref int y, int defaultX);
+		protected delegate void DrawMatrixValues(int x, ref int y);
 
 		protected int DrawMatrixType(ViewInfo view, int x, int y, string type, DrawMatrixValues drawValues)
 		{
@@ -35,17 +35,17 @@ namespace ReClassNET.Nodes
 
 			x = AddAddressOffset(view, x, y);
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, Name);
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name);
 			x = AddOpenClose(view, x, y);
 
 			x += view.Font.Width;
 
-			x = AddComment(view, x, y);
+			AddComment(view, x, y);
 
 			if (levelsOpen[view.Level])
 			{
-				drawValues(ref x, ref y, tx);
+				drawValues(tx, ref y);
 			}
 
 			return y + view.Font.Height;
@@ -72,8 +72,8 @@ namespace ReClassNET.Nodes
 			x = AddIcon(view, x, y, Icons.Vector, HotSpot.NoneId, HotSpotType.None);
 			x = AddAddressOffset(view, x, y);
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, Name);
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name);
 			x = AddOpenClose(view, x, y);
 
 			if (levelsOpen[view.Level])

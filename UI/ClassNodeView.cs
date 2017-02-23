@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Windows.Forms;
@@ -34,6 +33,7 @@ namespace ReClassNET.UI
 
 			/// <summary>Constructor of the class.</summary>
 			/// <param name="node">The class node.</param>
+			/// <param name="enableHierarchyView">The value if the hierarchy view is enabled.</param>
 			/// <param name="autoExpand">The value if nodes should get expanded.</param>
 			public ClassTreeNode(ClassNode node, ValueWrapper<bool> enableHierarchyView, ValueWrapper<bool> autoExpand)
 				: this(node, enableHierarchyView, autoExpand, null)
@@ -98,7 +98,6 @@ namespace ReClassNET.UI
 				var distinctClasses = ClassNode.Nodes
 					.OfType<BaseReferenceNode>()
 					.Select(r => r.InnerNode)
-					.OfType<ClassNode>()
 					.Distinct()
 					.ToList();
 
@@ -183,7 +182,7 @@ namespace ReClassNET.UI
 					selectedClass = value;
 					if (selectedClass != null)
 					{
-						classesTreeView.SelectedNode = root.Nodes.Cast<TreeNode>().Where(n => n.Tag == selectedClass).FirstOrDefault();
+						classesTreeView.SelectedNode = root.Nodes.Cast<TreeNode>().FirstOrDefault(n => n.Tag == selectedClass);
 					}
 
 					SelectionChanged?.Invoke(this, selectedClass);
@@ -283,10 +282,7 @@ namespace ReClassNET.UI
 		private void renameClassToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			var treeNode = classesTreeView.SelectedNode;
-			if (treeNode != null)
-			{
-				treeNode.BeginEdit();
-			}
+			treeNode?.BeginEdit();
 		}
 
 		private void classesTreeView_AfterLabelEdit(object sender, NodeLabelEditEventArgs e)
@@ -344,6 +340,11 @@ namespace ReClassNET.UI
 			root.Nodes.Cast<TreeNode>().ForEach(n => n.Collapse());
 		}
 
+		private void addNewClassToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			Program.MainForm?.CreateNewDefaultClass();
+		}
+
 		#endregion
 
 		/// <summary>Adds the class to the view.</summary>
@@ -389,7 +390,7 @@ namespace ReClassNET.UI
 		/// <returns>The found class tree node.</returns>
 		private ClassTreeNode FindClassTreeNode(ClassNode node)
 		{
-			return root.Nodes.OfType<ClassTreeNode>().Where(t => t.ClassNode == node).FirstOrDefault();
+			return root.Nodes.OfType<ClassTreeNode>().FirstOrDefault(t => t.ClassNode == node);
 		}
 	}
 }

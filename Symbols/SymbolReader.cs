@@ -3,6 +3,7 @@ using System.Diagnostics.Contracts;
 using System.Text;
 using Dia2Lib;
 using ReClassNET.Memory;
+using ReClassNET.Native;
 using ReClassNET.Util;
 
 namespace ReClassNET.Symbols
@@ -12,13 +13,9 @@ namespace ReClassNET.Symbols
 		private ComDisposableWrapper<DiaSource> diaSource;
 		private ComDisposableWrapper<IDiaSession> diaSession;
 
-		private readonly string searchPath;
-
-		public SymbolReader(string searchPath)
+		public SymbolReader()
 		{
 			diaSource = new ComDisposableWrapper<DiaSource>(new DiaSource());
-
-			this.searchPath = searchPath;
 		}
 
 		protected virtual void Dispose(bool disposing)
@@ -61,7 +58,7 @@ namespace ReClassNET.Symbols
 		{
 			Contract.Requires(module != null);
 
-			var reader = new SymbolReader(searchPath);
+			var reader = new SymbolReader();
 			reader.diaSource.Interface.loadDataForExe(module.Path, searchPath, null);
 			reader.CreateSession();
 			return reader;
@@ -71,7 +68,7 @@ namespace ReClassNET.Symbols
 		{
 			Contract.Requires(path != null);
 
-			var reader = new SymbolReader(null);
+			var reader = new SymbolReader();
 			reader.diaSource.Interface.loadDataFromPdb(path);
 			reader.CreateSession();
 			return reader;
@@ -182,7 +179,7 @@ namespace ReClassNET.Symbols
 						name = '?' + name;
 					}
 
-					sb.Append(NativeMethods.UnDecorateSymbolName(name).TrimStart('?', ' '));
+					sb.Append(NativeMethods.UndecorateSymbolName(name).TrimStart('?', ' '));
 				}
 				else
 				{

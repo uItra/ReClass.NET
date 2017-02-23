@@ -7,34 +7,35 @@ using System.Runtime.InteropServices;
 using Dia2Lib;
 using Microsoft.Win32;
 using ReClassNET.Memory;
+using ReClassNET.Native;
 using ReClassNET.Util;
 
 namespace ReClassNET.Symbols
 {
 	class DiaUtil : IDisposable
 	{
-		public readonly IDiaDataSource _IDiaDataSource;
-		public readonly IDiaSession _IDiaSession;
+		public readonly IDiaDataSource diaDataSource;
+		public readonly IDiaSession diaSession;
 
 		public DiaUtil(string pdbName)
 		{
 			Contract.Requires(pdbName != null);
 
-			_IDiaDataSource = new DiaSource();
-			_IDiaDataSource.loadDataFromPdb(pdbName);
-			_IDiaDataSource.openSession(out _IDiaSession);
+			diaDataSource = new DiaSource();
+			diaDataSource.loadDataFromPdb(pdbName);
+			diaDataSource.openSession(out diaSession);
 		}
 
-		private bool disposedValue = false;
+		private bool isDisposed;
 
 		protected virtual void Dispose(bool disposing)
 		{
-			if (!disposedValue)
+			if (!isDisposed)
 			{
-				Marshal.ReleaseComObject(_IDiaSession);
-				Marshal.ReleaseComObject(_IDiaDataSource);
+				Marshal.ReleaseComObject(diaSession);
+				Marshal.ReleaseComObject(diaDataSource);
 
-				disposedValue = true;
+				isDisposed = true;
 			}
 		}
 
@@ -66,6 +67,13 @@ namespace ReClassNET.Symbols
 
 		public SymbolStore()
 		{
+			if (NativeMethods.IsUnix())
+			{
+				// TODO: Are there symbol files like on windows?
+
+				return;
+			}
+
 			ResolveSearchPath();
 
 			var blacklistPath = Path.Combine(SymbolCachePath, BlackListFile);
@@ -88,18 +96,15 @@ namespace ReClassNET.Symbols
 					{
 						using (var debuggerKey = vsKey.OpenSubKey($@"{subKeyName}\Debugger"))
 						{
-							if (debuggerKey != null)
+							var symbolCacheDir = debuggerKey?.GetValue("SymbolCacheDir") as string;
+							if (symbolCacheDir != null)
 							{
-								var symbolCacheDir = debuggerKey.GetValue("SymbolCacheDir") as string;
-								if (symbolCacheDir != null)
+								if (Directory.Exists(symbolCacheDir))
 								{
-									if (Directory.Exists(symbolCacheDir))
-									{
-										SymbolCachePath = symbolCacheDir;
-									}
-
-									return;
+									SymbolCachePath = symbolCacheDir;
 								}
+
+								return;
 							}
 						}
 					}
@@ -111,6 +116,11 @@ namespace ReClassNET.Symbols
 		{
 			Contract.Requires(module != null);
 			Contract.Requires(module.Name != null);
+
+			if (NativeMethods.IsUnix())
+			{
+				return;
+			}
 
 			var name = module.Name.ToLower();
 
@@ -146,6 +156,11 @@ namespace ReClassNET.Symbols
 			Contract.Requires(module != null);
 			Contract.Requires(module.Name != null);
 
+			if (NativeMethods.IsUnix())
+			{
+				return;
+			}
+
 			var moduleName = module.Name.ToLower();
 
 			bool createNew;
@@ -168,6 +183,11 @@ namespace ReClassNET.Symbols
 		public void LoadSymbolsFromPDB(string path)
 		{
 			Contract.Requires(path != null);
+
+			if (NativeMethods.IsUnix())
+			{
+				return;
+			}
 
 			var moduleName = Path.GetFileName(path).ToLower();
 
@@ -192,6 +212,11 @@ namespace ReClassNET.Symbols
 		{
 			Contract.Requires(module != null);
 			Contract.Requires(module.Name != null);
+
+			if (NativeMethods.IsUnix())
+			{
+				return null;
+			}
 
 			var name = module.Name.ToLower();
 

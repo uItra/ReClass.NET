@@ -6,7 +6,6 @@ using System.Linq;
 using ReClassNET.AddressParser;
 using ReClassNET.Memory;
 using ReClassNET.UI;
-using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
@@ -15,6 +14,12 @@ namespace ReClassNET.Nodes
 	public class ClassNode : BaseContainerNode
 	{
 		public static event ClassCreatedEventHandler ClassCreated;
+
+#if WIN64
+		public static IntPtr DefaultAddress = (IntPtr)0x140000000;
+#else
+		public static IntPtr DefaultAddress = (IntPtr)0x400000;
+#endif
 
 		/// <summary>Size of the node in bytes.</summary>
 		public override int MemorySize => Nodes.Sum(n => n.MemorySize);
@@ -51,11 +56,7 @@ namespace ReClassNET.Nodes
 
 			Uuid = new NodeUuid(true);
 
-#if WIN64
-			Address = (IntPtr)0x140000000;
-#else
-			Address = (IntPtr)0x400000;
-#endif
+			Address = DefaultAddress;
 
 			if (notifyClassCreated)
 			{
@@ -98,14 +99,15 @@ namespace ReClassNET.Nodes
 			var tx = x;
 
 			x = AddIcon(view, x, y, Icons.Class, -1, HotSpotType.None);
-			x = AddText(view, x, y, Program.Settings.OffsetColor, 0, AddressFormula) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.OffsetColor, 0, AddressFormula) + view.Font.Width;
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, "Class") + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.ValueColor, HotSpot.NoneId, $"[{MemorySize}]") + view.Font.Width;
-			x = AddComment(view, x, y);
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, "Class") + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, $"[{MemorySize}]") + view.Font.Width;
+			AddComment(view, x, y);
 
 			y += view.Font.Height;
+
 			if (levelsOpen[view.Level])
 			{
 				var nv = view.Clone();

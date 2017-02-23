@@ -1,7 +1,5 @@
 LIBRARY
 EXPORTS
-	Initialize
-	GetLastErrorCode
 	IsProcessValid
 	OpenRemoteProcess
 	CloseRemoteProcess
@@ -9,5 +7,10 @@ EXPORTS
 	WriteRemoteMemory
 	EnumerateProcesses
 	EnumerateRemoteSectionsAndModules
-	DisassembleRemoteCode
+	DisassembleCode
 	ControlRemoteProcess
+	AttachDebuggerToProcess
+	DetachDebuggerFromProcess
+	AwaitDebugEvent
+	HandleDebugEvent
+	SetHardwareBreakpoint

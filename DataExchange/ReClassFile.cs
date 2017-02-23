@@ -10,7 +10,7 @@ using ReClassNET.Util;
 
 namespace ReClassNET.DataExchange
 {
-	partial class ReClassFile : IReClassImport
+	class ReClassFile : IReClassImport
 	{
 		public const string FormatName = "ReClass File";
 		public const string FileExtension = ".reclass";
@@ -106,7 +106,7 @@ namespace ReClassNET.DataExchange
 					part = part.Substring(1);
 				}
 
-				if (part.Contains(".exe") || part.Contains(".dll"))
+				if (isModule)
 				{
 					part = $"<{part}>";
 				}
@@ -169,7 +169,7 @@ namespace ReClassNET.DataExchange
 
 					while (size != 0)
 					{
-						BaseNode paddingNode = null;
+						BaseNode paddingNode;
 #if WIN64
 						if (size >= 8)
 						{
@@ -203,7 +203,7 @@ namespace ReClassNET.DataExchange
 				var referenceNode = node as BaseReferenceNode;
 				if (referenceNode != null)
 				{
-					string reference = null;
+					string reference;
 					if (referenceNode is ClassInstanceArrayNode)
 					{
 						reference = element.Element("Array")?.Attribute("Name")?.Value;

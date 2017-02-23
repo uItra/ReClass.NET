@@ -1,95 +1,74 @@
 ﻿using System;
 using System.Globalization;
-using System.Security.Principal;
 using System.Windows.Forms;
 using Microsoft.SqlServer.MessageBox;
+using ReClassNET.Core;
 using ReClassNET.Forms;
 using ReClassNET.Logger;
-using ReClassNET.Memory;
+using ReClassNET.Native;
 using ReClassNET.UI;
-using ReClassNET.Util;
 
 namespace ReClassNET
 {
 	static class Program
 	{
-		private static Settings settings;
-		private static ILogger logger;
-		private static Random random = new Random();
-		private static MainForm mainForm;
-		private static bool designMode = true;
+		public static Settings Settings { get; private set; }
 
-		public static Settings Settings => settings;
+		public static ILogger Logger { get; private set; }
 
-		public static ILogger Logger => logger;
+		public static Random GlobalRandom { get; } = new Random();
 
-		public static Random GlobalRandom => random;
+		public static MainForm MainForm { get; private set; }
 
-		public static MainForm MainForm => mainForm;
-
-		public static bool DesignMode => designMode;
+		public static bool DesignMode { get; private set; } = true;
 
 		[STAThread]
 		static void Main()
 		{
-			designMode = false; // The designer doesn't call Main()
+			DesignMode = false; // The designer doesn't call Main()
 
-			DpiUtil.ConfigureProcess();
+			try
+			{
+				DpiUtil.ConfigureProcess();
+			}
+			catch
+			{
+				
+			}
 
-			EnableDebugPrivileges();
+			NativeMethods.EnableDebugPrivileges();
 
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 
 			CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 
-			settings = Settings.Load(Constants.SettingsFile);
-			logger = new GuiLogger();
-#if RELEASE
+			Settings = Settings.Load(Constants.SettingsFile);
+			Logger = new GuiLogger();
+#if DEBUG
+			using (var coreFunctions = new CoreFunctionsManager())
+			{
+				MainForm = new MainForm(coreFunctions);
+
+				Application.Run(MainForm);
+			}
+#else
 			try
 			{
-				using (var nativeHelper = new NativeHelper())
+				using (var nativeHelper = new CoreFunctionsManager())
 				{
-					mainForm = new MainForm(nativeHelper);
+					MainForm = new MainForm(nativeHelper);
 
-					Application.Run(mainForm);
+					Application.Run(MainForm);
 				}
 			}
 			catch (Exception ex)
 			{
 				ShowException(ex);
 			}
-#else
-			using (var nativeHelper = new NativeHelper())
-			{
-				mainForm = new MainForm(nativeHelper);
-
-				Application.Run(mainForm);
-			}
 #endif
 
-			Settings.Save(settings, Constants.SettingsFile);
-		}
-
-		private static bool EnableDebugPrivileges()
-		{
-			var result = false;
-
-			IntPtr token;
-			if (NativeMethods.OpenProcessToken(System.Diagnostics.Process.GetCurrentProcess().Handle, TokenAccessLevels.AllAccess, out token))
-			{
-				var privileges = new NativeMethods.TOKEN_PRIVILEGES();
-				privileges.PrivilegeCount = 1;
-				privileges.Luid.LowPart = 0x14;
-				privileges.Luid.HighPart = 0;
-				privileges.Attributes = 2;
-
-				result = NativeMethods.AdjustTokenPrivileges(token, false, ref privileges, 0, IntPtr.Zero, IntPtr.Zero);
-
-				NativeMethods.CloseHandle(token);
-			}
-
-			return result;
+			Settings.Save(Settings, Constants.SettingsFile);
 		}
 
 		/// <summary>Shows the exception in a special form.</summary>
@@ -98,9 +77,11 @@ namespace ReClassNET
 		{
 			ex.HelpLink = Constants.HelpUrl;
 
-			var msg = new ExceptionMessageBox(ex);
-			msg.ShowToolBar = true;
-			msg.Symbol = ExceptionMessageBoxSymbol.Error;
+			var msg = new ExceptionMessageBox(ex)
+			{
+				ShowToolBar = true,
+				Symbol = ExceptionMessageBoxSymbol.Error
+			};
 			msg.Show(null);
 		}
 	}

@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics.Contracts;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using Microsoft.SqlServer.MessageBox;
 using ReClassNET.Logger;
 using ReClassNET.UI;
 
@@ -73,10 +71,7 @@ namespace ReClassNET.Forms
 		private void RefreshDataBinding()
 		{
 			var cm = entriesDataGridView.BindingContext[items] as CurrencyManager;
-			if (cm != null)
-			{
-				cm.Refresh();
-			}
+			cm?.Refresh();
 		}
 
 		public void Clear()
@@ -115,12 +110,9 @@ namespace ReClassNET.Forms
 		private void ShowDetailsForm()
 		{
 			var item = entriesDataGridView.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault()?.DataBoundItem as LogItem;
-			if (item != null)
+			if (item?.Exception != null)
 			{
-				if (item.Exception != null)
-				{
-					Program.ShowException(item.Exception);
-				}
+				Program.ShowException(item.Exception);
 			}
 		}
 	}

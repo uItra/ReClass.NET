@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ReClassNET.CodeGenerator;
+using ReClassNET.Core;
 using ReClassNET.DataExchange;
 using ReClassNET.Logger;
 using ReClassNET.Memory;
@@ -20,10 +21,9 @@ namespace ReClassNET.Forms
 {
 	public partial class MainForm : IconForm
 	{
-		private readonly NativeHelper nativeHelper;
+		private readonly CoreFunctionsManager coreFunctions;
 
 		private readonly RemoteProcess remoteProcess;
-		private readonly MemoryBuffer memory;
 
 		private readonly PluginManager pluginManager;
 
@@ -34,46 +34,44 @@ namespace ReClassNET.Forms
 		private Task loadSymbolsTask;
 		private CancellationTokenSource loadSymbolsTaskToken;
 
-		public MainForm(NativeHelper nativeHelper)
+		public ClassNodeView ClassView => classesView;
+
+		public MenuStrip MainMenu => mainMenuStrip;
+
+		public MainForm(CoreFunctionsManager coreFunctions)
 		{
-			Contract.Requires(nativeHelper != null);
+			Contract.Requires(coreFunctions != null);
 			Contract.Ensures(remoteProcess != null);
-			Contract.Ensures(memory != null);
 			Contract.Ensures(pluginManager != null);
 			Contract.Ensures(currentProject != null);
 
-			this.nativeHelper = nativeHelper;
+			this.coreFunctions = coreFunctions;
 
 			InitializeComponent();
 
 			mainMenuStrip.Renderer = new CustomToolStripProfessionalRenderer(true);
 			toolStrip.Renderer = new CustomToolStripProfessionalRenderer(false);
 
-			remoteProcess = new RemoteProcess(nativeHelper);
-			remoteProcess.ProcessChanged += delegate (RemoteProcess sender)
+			remoteProcess = new RemoteProcess(coreFunctions);
+			remoteProcess.ProcessAttached += (sender) =>
 			{
-				if (sender.Process == null)
-				{
-					Text = Constants.ApplicationName;
-					processInfoToolStripStatusLabel.Text = "No process selected";
-				}
-				else
-				{
-					var text = $"{sender.Process.Name} (PID: {sender.Process.Id})";
+				var text = $"{sender.UnderlayingProcess.Name} (PID: {sender.UnderlayingProcess.Id.ToString()})";
 
-					Text = $"{Constants.ApplicationName} - {text}";
-					processInfoToolStripStatusLabel.Text = text;
-				}
+				Text = $"{Constants.ApplicationName} - {text}";
+				processInfoToolStripStatusLabel.Text = text;
+			};
+			remoteProcess.ProcessClosed += (sender) =>
+			{
+				Text = Constants.ApplicationName;
+				processInfoToolStripStatusLabel.Text = "No process selected";
 			};
 
-			memory = new MemoryBuffer
+			memoryViewControl.Memory = new MemoryBuffer
 			{
 				Process = remoteProcess
 			};
 
-			memoryViewControl.Memory = memory;
-
-			pluginManager = new PluginManager(new DefaultPluginHost(this, remoteProcess, Program.Logger), nativeHelper);
+			pluginManager = new PluginManager(new DefaultPluginHost(this, remoteProcess, Program.Logger), coreFunctions);
 
 			SetProject(new ReClassNetProject());
 
@@ -95,7 +93,7 @@ namespace ReClassNET.Forms
 
 			GlobalWindowManager.RemoveWindow(this);
 
-			base.OnClosed(e);
+			base.OnFormClosed(e);
 		}
 
 		#region Event Handler
@@ -145,45 +143,42 @@ namespace ReClassNET.Forms
 				Close();
 			}
 
-			if (remoteProcess.Process != null)
-			{
-				remoteProcess.Process.Close();
-			}
+			remoteProcess.Dispose();
 		}
 
 		#region Menustrip
 
 		private void attachToProcessToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			using (var pb = new ProcessBrowserForm(nativeHelper, Program.Settings.LastProcess))
+			using (var pb = new ProcessBrowserForm(coreFunctions, Program.Settings.LastProcess))
 			{
 				if (pb.ShowDialog() == DialogResult.OK)
 				{
-					DetachFromCurrentProcess();
-
-					remoteProcess.Process = pb.SelectedProcess;
-					remoteProcess.UpdateProcessInformations();
-					if (pb.LoadSymbols)
+					if (pb.SelectedProcess != null)
 					{
-						LoadAllSymbolsForCurrentProcess();
-					}
+						remoteProcess.Close();
 
-					Program.Settings.LastProcess = remoteProcess.Process.Name;
+						remoteProcess.Open(pb.SelectedProcess);
+						remoteProcess.UpdateProcessInformations();
+						if (pb.LoadSymbols)
+						{
+							LoadAllSymbolsForCurrentProcess();
+						}
+
+						Program.Settings.LastProcess = remoteProcess.UnderlayingProcess.Name;
+					}
 				}
 			}
 		}
 
 		private void detachToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			DetachFromCurrentProcess();
+			remoteProcess.Close();
 		}
 
 		private void newClassToolStripButton_Click(object sender, EventArgs e)
 		{
-			var node = ClassNode.Create();
-			node.AddBytes(64);
-
-			classesView.SelectedClass = node;
+			CreateNewDefaultClass();
 		}
 
 		private void openProjectToolStripMenuItem_Click(object sender, EventArgs e)
@@ -284,7 +279,7 @@ namespace ReClassNET.Forms
 
 		private void pluginsToolStripButton_Click(object sender, EventArgs e)
 		{
-			using (var pf = new PluginForm(pluginManager, nativeHelper))
+			using (var pf = new PluginForm(pluginManager, coreFunctions))
 			{
 				pf.ShowDialog();
 			}
@@ -307,17 +302,17 @@ namespace ReClassNET.Forms
 				return;
 			}
 
-			var action = NativeHelper.ControlRemoteProcessAction.Terminate;
+			var action = ControlRemoteProcessAction.Terminate;
 			if (sender == resumeProcessToolStripMenuItem)
 			{
-				action = NativeHelper.ControlRemoteProcessAction.Resume;
+				action = ControlRemoteProcessAction.Resume;
 			}
 			else if (sender == suspendProcessToolStripMenuItem)
 			{
-				action = NativeHelper.ControlRemoteProcessAction.Suspend;
+				action = ControlRemoteProcessAction.Suspend;
 			}
 
-			nativeHelper.ControlRemoteProcess(remoteProcess.Process.Handle, action);
+			remoteProcess.ControlRemoteProcess(action);
 		}
 
 		private void loadSymbolToolStripMenuItem_Click(object sender, EventArgs e)
@@ -502,6 +497,21 @@ namespace ReClassNET.Forms
 
 		#endregion
 
+		/// <summary>Creates a new default class.</summary>
+		public void CreateNewDefaultClass()
+		{
+			var node = ClassNode.Create();
+			node.AddBytes(64);
+
+			var mainModule = remoteProcess.GetModuleByName(remoteProcess.UnderlayingProcess?.Name);
+			if (mainModule != null)
+			{
+				node.Address = mainModule.Start;
+			}
+
+			classesView.SelectedClass = node;
+		}
+
 		/// <summary>Sets the current project.</summary>
 		/// <param name="newProject">The new project.</param>
 		public void SetProject(ReClassNetProject newProject)
@@ -559,7 +569,7 @@ namespace ReClassNET.Forms
 		{
 			Contract.Requires(type != null);
 
-			var item = toolStrip.Items.OfType<TypeToolStripButton>().Where(i => i.Value == type).FirstOrDefault();
+			var item = toolStrip.Items.OfType<TypeToolStripButton>().FirstOrDefault(i => i.Value == type);
 			if (item != null)
 			{
 				item.Click -= memoryTypeToolStripButton_Click;
@@ -567,16 +577,6 @@ namespace ReClassNET.Forms
 			}
 
 			memoryViewControl.DeregisterNodeType(type);
-		}
-
-		/// <summary>Detach from current process.</summary>
-		private void DetachFromCurrentProcess()
-		{
-			if (remoteProcess.Process != null)
-			{
-				remoteProcess.Process.Close();
-				remoteProcess.Process = null;
-			}
 		}
 
 		/// <summary>Shows the code form with the given <paramref name="generator"/>.</summary>
@@ -662,10 +662,7 @@ namespace ReClassNET.Forms
 					Program.Logger.Log(LogLevel.Error, $"The file '{filePath}' has an unknown type.");
 					break;
 			}
-			if (import != null)
-			{
-				import.Load(filePath, Program.Logger);
-			}
+			import?.Load(filePath, Program.Logger);
 		}
 
 		/// <summary>Loads all symbols for the current process and displays the progress status.</summary>

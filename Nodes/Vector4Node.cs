@@ -9,13 +9,13 @@ namespace ReClassNET.Nodes
 		struct Vector4Data
 		{
 			[FieldOffset(0)]
-			public float X;
+			public readonly float X;
 			[FieldOffset(4)]
-			public float Y;
+			public readonly float Y;
 			[FieldOffset(8)]
-			public float Z;
+			public readonly float Z;
 			[FieldOffset(12)]
-			public float W;
+			public readonly float W;
 		}
 
 		/// <summary>Size of the node in bytes.</summary>
@@ -23,8 +23,8 @@ namespace ReClassNET.Nodes
 
 		/// <summary>Draws this node.</summary>
 		/// <param name="view">The view information.</param>
-		/// <param name="x">The x coordinate.</param>
-		/// <param name="y">The y coordinate.</param>
+		/// <param name="x2">The x coordinate.</param>
+		/// <param name="y2">The y coordinate.</param>
 		/// <returns>The height the node occupies.</returns>
 		public override int Draw(ViewInfo view, int x2, int y2)
 		{
@@ -32,15 +32,15 @@ namespace ReClassNET.Nodes
 			{
 				var value = view.Memory.ReadObject<Vector4Data>(Offset);
 
-				x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NoneId, "(");
-				x = AddText(view, x, y, Program.Settings.ValueColor, 0, $"{value.X:0.000}");
-				x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NoneId, ",");
-				x = AddText(view, x, y, Program.Settings.ValueColor, 1, $"{value.Y:0.000}");
-				x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NoneId, ",");
-				x = AddText(view, x, y, Program.Settings.ValueColor, 2, $"{value.Z:0.000}");
-				x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NoneId, ",");
-				x = AddText(view, x, y, Program.Settings.ValueColor, 3, $"{value.W:0.000}");
-				x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NoneId, ")");
+				x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NoneId, "(");
+				x = AddText(view, x, y, view.Settings.ValueColor, 0, $"{value.X:0.000}");
+				x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NoneId, ",");
+				x = AddText(view, x, y, view.Settings.ValueColor, 1, $"{value.Y:0.000}");
+				x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NoneId, ",");
+				x = AddText(view, x, y, view.Settings.ValueColor, 2, $"{value.Z:0.000}");
+				x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NoneId, ",");
+				x = AddText(view, x, y, view.Settings.ValueColor, 3, $"{value.W:0.000}");
+				x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NoneId, ")");
 			});
 		}
 

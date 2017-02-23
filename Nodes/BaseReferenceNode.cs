@@ -1,12 +1,9 @@
-﻿using System;
-using System.Diagnostics.Contracts;
+﻿using System.Diagnostics.Contracts;
 
 namespace ReClassNET.Nodes
 {
 	public abstract class BaseReferenceNode : BaseNode
 	{
-		private readonly bool performCycleCheck;
-
 		/// <summary>Gets or sets the inner node.</summary>
 		public ClassNode InnerNode { get; protected set; }
 

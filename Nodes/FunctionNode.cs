@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using ReClassNET.Memory;
@@ -8,11 +7,8 @@ using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
-	public class FunctionNode : BaseNode
+	public class FunctionNode : BaseFunctionNode
 	{
-		private IntPtr address = IntPtr.Zero;
-		private readonly List<string> instructions = new List<string>();
-
 		public string Signature { get; set; } = "void function()";
 
 		public ClassNode BelongsToClass { get; set; }
@@ -25,7 +21,7 @@ namespace ReClassNET.Nodes
 		{
 			DisassembleRemoteCode(memory, spot.Address);
 
-			return string.Join("\n", instructions);
+			return string.Join("\n", instructions.Select(i => i.Instruction));
 		}
 
 		public override int Draw(ViewInfo view, int x, int y)
@@ -49,12 +45,12 @@ namespace ReClassNET.Nodes
 
 			x = AddAddressOffset(view, x, y);
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, "Function") + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, "Function") + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
 
 			x = AddOpenClose(view, x, y) + view.Font.Width;
 
-			x = AddComment(view, x, y);
+			AddComment(view, x, y);
 
 			var ptr = view.Address.Add(Offset);
 
@@ -63,21 +59,15 @@ namespace ReClassNET.Nodes
 			if (levelsOpen[view.Level])
 			{
 				y += view.Font.Height;
-				x = AddText(view, tx, y, Program.Settings.TypeColor, HotSpot.NoneId, "Signature:") + view.Font.Width;
-				x = AddText(view, x, y, Program.Settings.ValueColor, 0, Signature);
+				x = AddText(view, tx, y, view.Settings.TypeColor, HotSpot.NoneId, "Signature:") + view.Font.Width;
+				AddText(view, x, y, view.Settings.ValueColor, 0, Signature);
 
 				y += view.Font.Height;
-				x = AddText(view, tx, y, Program.Settings.TextColor, HotSpot.NoneId, "Belongs to: ");
-				x = AddText(view, x, y, Program.Settings.ValueColor, HotSpot.NoneId, BelongsToClass == null ? "<None>" : $"<{BelongsToClass.Name}>");
-				x = AddIcon(view, x, y, Icons.Change, 1, HotSpotType.ChangeType);
+				x = AddText(view, tx, y, view.Settings.TextColor, HotSpot.NoneId, "Belongs to: ");
+				x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, BelongsToClass == null ? "<None>" : $"<{BelongsToClass.Name}>");
+				AddIcon(view, x, y, Icons.Change, 1, HotSpotType.ChangeType);
 
-				y += view.Font.Height;
-				foreach (var line in instructions)
-				{
-					y += view.Font.Height;
-
-					AddText(view, tx, y, Program.Settings.NameColor, HotSpot.ReadOnlyId, line);
-				}
+				y = DrawInstructions(view, tx, y + 4) + 4;
 			}
 
 			return y + view.Font.Height;
@@ -93,7 +83,7 @@ namespace ReClassNET.Nodes
 			var h = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += instructions.Count() * view.Font.Height;
+				h += instructions.Count * view.Font.Height;
 			}
 			return h;
 		}
@@ -120,25 +110,10 @@ namespace ReClassNET.Nodes
 
 				if (!address.IsNull() && memory.Process.IsValid)
 				{
-					memorySize = 0;
-
-					memory.Process.NativeHelper.DisassembleRemoteCode(
-						memory.Process.Process.Handle,
-						address,
-						4096,
-						(a, l, i) =>
-						{
-							memorySize += l;
-#if WIN64
-							instructions.Add($"{a.ToString("X08")} {i}");
-#else
-							instructions.Add($"{a.ToString("X04")} {i}");
-#endif
-						}
-					);
-
-					ParentNode?.ChildHasChanged(this);
+					DisassembleRemoteCode(memory, address, out memorySize);
 				}
+
+				ParentNode?.ChildHasChanged(this);
 			}
 		}
 	}

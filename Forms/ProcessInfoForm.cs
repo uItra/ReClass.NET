@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using ReClassNET.Memory;
+using ReClassNET.Native;
 using ReClassNET.Nodes;
 using ReClassNET.UI;
 
@@ -38,6 +39,12 @@ namespace ReClassNET.Forms
 			modulesDataGridView.AutoGenerateColumns = false;
 			sectionsDataGridView.AutoGenerateColumns = false;
 
+			// TODO: Workaround, Mono can't display a DataGridViewImageColumn.
+			if (NativeMethods.IsUnix())
+			{
+				moduleIconDataGridViewImageColumn.Visible = false;
+			}
+
 			if (process.IsValid)
 			{
 				var sections = new DataTable();
@@ -57,8 +64,7 @@ namespace ReClassNET.Forms
 				modules.Columns.Add("path", typeof(string));
 				modules.Columns.Add("module", typeof(Module));
 
-				process.NativeHelper.EnumerateRemoteSectionsAndModules(
-					process.Process.Handle,
+				process.EnumerateRemoteSectionsAndModules(
 					delegate (Section section)
 					{
 						var row = sections.NewRow();
@@ -74,7 +80,7 @@ namespace ReClassNET.Forms
 					delegate (Module module)
 					{
 						var row = modules.NewRow();
-						row["icon"] = ShellIcon.GetSmallIcon(module.Path);
+						row["icon"] = NativeMethods.GetIconForFile(module.Path);
 						row["name"] = module.Name;
 						row["address"] = module.Start.ToString(Constants.StringHexFormat);
 						row["size"] = module.Size.ToString(Constants.StringHexFormat);
@@ -164,8 +170,8 @@ namespace ReClassNET.Forms
 		private void dumpToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			bool isModule;
-			string fileName = string.Empty;
-			string initialDirectory = string.Empty;
+			string fileName;
+			var initialDirectory = string.Empty;
 			IntPtr address;
 			int size;
 
@@ -248,21 +254,13 @@ namespace ReClassNET.Forms
 		private Module GetSelectedModule()
 		{
 			var row = modulesDataGridView.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault()?.DataBoundItem as DataRowView;
-			if (row != null)
-			{
-				return row["module"] as Module;
-			}
-			return null;
+			return row?["module"] as Module;
 		}
 
 		private Section GetSelectedSection()
 		{
 			var row = sectionsDataGridView.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault()?.DataBoundItem as DataRowView;
-			if (row != null)
-			{
-				return row["section"] as Section;
-			}
-			return null;
+			return row?["section"] as Section;
 		}
 	}
 }

@@ -2,10 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using ReClassNET.Memory;
 using ReClassNET.Nodes;
@@ -14,6 +11,9 @@ namespace ReClassNET.UI
 {
 	public class MemoryPreviewToolTip : ToolTip
 	{
+		private const int ToolTipWidth = 1000 + ToolTipPadding;
+		private const int ToolTipPadding = 4;
+
 		[Browsable(false)]
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public FontEx Font
@@ -34,7 +34,7 @@ namespace ReClassNET.UI
 
 		private readonly ViewInfo viewInfo;
 
-		private Size size = new Size();
+		private Size size;
 
 		public MemoryPreviewToolTip()
 		{
@@ -54,23 +54,28 @@ namespace ReClassNET.UI
 				Classes = new List<ClassNode>()
 			};
 
-			Popup += new PopupEventHandler(OnPopup);
-			Draw += new DrawToolTipEventHandler(OnDraw);
+			Popup += OnPopup;
+			Draw += OnDraw;
 		}
 
 		private void OnPopup(object sender, PopupEventArgs e)
 		{
-			size.Width = 604;
-			size.Height = nodes.Select(n => n.CalculateHeight(viewInfo)).Sum() + 4;
+			size.Width = ToolTipWidth;
+			size.Height = nodes.Select(n => n.CalculateHeight(viewInfo)).Sum() + ToolTipPadding;
 
 			e.ToolTipSize = size;
 
-			viewInfo.ClientArea = new Rectangle(2, 2, size.Width - 4, size.Height - 4);
+			viewInfo.ClientArea = new Rectangle(ToolTipPadding / 2, ToolTipPadding / 2, size.Width - ToolTipPadding, size.Height - ToolTipPadding);
 		}
 
 		private void OnDraw(object sender, DrawToolTipEventArgs e)
 		{
 			viewInfo.HotSpots.Clear();
+
+			// Some settings are not usefull for the preview.
+			viewInfo.Settings = Program.Settings.Clone();
+			viewInfo.Settings.ShowNodeAddress = false;
+			viewInfo.Settings.HighlightChangedValues = false;
 
 			viewInfo.Context = e.Graphics;
 

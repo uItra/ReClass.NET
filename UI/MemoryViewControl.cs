@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using ReClassNET.DataExchange;
+using ReClassNET.Debugger;
 using ReClassNET.Memory;
 using ReClassNET.Nodes;
 using ReClassNET.Util;
@@ -21,8 +22,8 @@ namespace ReClassNET.UI
 		private readonly List<HotSpot> hotSpots = new List<HotSpot>();
 		private readonly List<HotSpot> selectedNodes = new List<HotSpot>();
 
-		private HotSpot selectionCaret = null;
-		private HotSpot selectionAnchor = null;
+		private HotSpot selectionCaret;
+		private HotSpot selectionAnchor;
 
 		private readonly FontEx font;
 
@@ -35,10 +36,7 @@ namespace ReClassNET.UI
 			{
 				Contract.Requires(value != null);
 
-				if (project != value)
-				{
-					project = value;
-				}
+				project = value;
 			}
 		}
 
@@ -122,7 +120,7 @@ namespace ReClassNET.UI
 		{
 			Contract.Requires(type != null);
 
-			var item = changeTypeToolStripMenuItem.DropDownItems.OfType<TypeToolStripMenuItem>().Where(i => i.Value == type).FirstOrDefault();
+			var item = changeTypeToolStripMenuItem.DropDownItems.OfType<TypeToolStripMenuItem>().FirstOrDefault(i => i.Value == type);
 			if (item != null)
 			{
 				item.Click -= memoryTypeToolStripMenuItem_Click;
@@ -160,6 +158,7 @@ namespace ReClassNET.UI
 
 			var view = new ViewInfo
 			{
+				Settings = Program.Settings,
 				Context = e.Graphics,
 				Font = font,
 				Address = ClassNode.Offset,
@@ -171,7 +170,7 @@ namespace ReClassNET.UI
 			};
 
 			var scrollY = VerticalScroll.Value * font.Height;
-			int maxY = 0;
+			int maxY;
 			try
 			{
 				BaseHexNode.CurrentHighlightTime = DateTime.Now;
@@ -214,6 +213,8 @@ namespace ReClassNET.UI
 		{
 			Contract.Requires(e != null);
 
+			bool invalidate = false;
+
 			editBox.Visible = false;
 
 			foreach (var hotSpot in hotSpots)
@@ -227,10 +228,18 @@ namespace ReClassNET.UI
 						if (hotSpot.Type == HotSpotType.OpenClose)
 						{
 							hitObject.ToggleLevelOpen(hotSpot.Level);
+
+							invalidate = true;
+
+							break;
 						}
 						else if (hotSpot.Type == HotSpotType.Click)
 						{
 							hitObject.Update(hotSpot);
+
+							invalidate = true;
+
+							break;
 						}
 						else if (hotSpot.Type == HotSpotType.Select)
 						{
@@ -258,7 +267,7 @@ namespace ReClassNET.UI
 									}
 									else
 									{
-										selectedNodes.Remove(selectedNodes.Where(c => c.Node == hitObject).FirstOrDefault());
+										selectedNodes.Remove(selectedNodes.FirstOrDefault(c => c.Node == hitObject));
 									}
 
 									OnSelectionChanged();
@@ -286,7 +295,8 @@ namespace ReClassNET.UI
 											{
 												Address = containerNode.Offset.Add(n.Offset),
 												Node = n,
-												Memory = first.Memory
+												Memory = first.Memory,
+												Level = first.Level
 											}))
 										{
 											spot.Node.IsSelected = true;
@@ -318,14 +328,22 @@ namespace ReClassNET.UI
 
 								selectedNodeContextMenuStrip.Show(this, e.Location);
 							}
+
+							invalidate = true;
 						}
 						else if (hotSpot.Type == HotSpotType.Drop)
 						{
 							selectedNodeContextMenuStrip.Show(this, e.Location);
+
+							break;
 						}
 						else if (hotSpot.Type == HotSpotType.Delete)
 						{
 							RemoveSelectedNodes();
+
+							invalidate = true;
+
+							break;
 						}
 						else if (hotSpot.Type == HotSpotType.ChangeType)
 						{
@@ -341,18 +359,18 @@ namespace ReClassNET.UI
 
 								EventHandler handler = (sender2, e2) =>
 								{
-									var classNode = (sender2 as TypeToolStripMenuItem)?.Tag as ClassNode;
-									if (classNode == null)
+									var selectedClassNode = (sender2 as TypeToolStripMenuItem)?.Tag as ClassNode;
+									if (selectedClassNode == null)
 									{
 										return;
 									}
 
-									if (classNode == noneClass)
+									if (selectedClassNode == noneClass)
 									{
-										classNode = null;
+										selectedClassNode = null;
 									}
 
-									functionNode.BelongsToClass = classNode;
+									functionNode.BelongsToClass = selectedClassNode;
 								};
 
 								items = noneClass.Yield()
@@ -374,15 +392,15 @@ namespace ReClassNET.UI
 							{
 								EventHandler handler = (sender2, e2) =>
 								{
-									var classNode = (sender2 as TypeToolStripMenuItem)?.Tag as ClassNode;
-									if (classNode == null)
+									var selectedClassNode = (sender2 as TypeToolStripMenuItem)?.Tag as ClassNode;
+									if (selectedClassNode == null)
 									{
 										return;
 									}
 
-									if (IsCycleFree(refNode.ParentNode as ClassNode, classNode))
+									if (IsCycleFree(refNode.ParentNode as ClassNode, selectedClassNode))
 									{
-										refNode.ChangeInnerNode(classNode);
+										refNode.ChangeInnerNode(selectedClassNode);
 									}
 								};
 
@@ -406,15 +424,20 @@ namespace ReClassNET.UI
 								menu.Items.AddRange(items.ToArray());
 								menu.Show(this, e.Location);
 							}
+
+							break;
 						}
 					}
 					catch (Exception ex)
 					{
 						Program.Logger.Log(ex);
 					}
-
-					Invalidate();
 				}
+			}
+
+			if (invalidate)
+			{
+				Invalidate();
 			}
 
 			base.OnMouseClick(e);
@@ -452,7 +475,7 @@ namespace ReClassNET.UI
 
 			if (selectedNodes.Count > 1)
 			{
-				var memorySize = selectedNodes.Select(h => h.Node.MemorySize).Sum();
+				var memorySize = selectedNodes.Sum(h => h.Node.MemorySize);
 				nodeInfoToolTip.Show($"{selectedNodes.Count} Nodes selected, {memorySize} bytes", this, toolTipPosition.OffsetEx(16, 16));
 			}
 			else
@@ -524,13 +547,13 @@ namespace ReClassNET.UI
 
 						return true;
 					}
-					else if (key == Keys.Menu)
+					if (key == Keys.Menu)
 					{
 						selectedNodeContextMenuStrip.Show(this, 10, 10);
 
 						return true;
 					}
-					else if (modifier == Keys.Control && (key == Keys.C || key == Keys.V))
+					if (modifier == Keys.Control && (key == Keys.C || key == Keys.V))
 					{
 						if (key == Keys.C)
 						{
@@ -543,27 +566,35 @@ namespace ReClassNET.UI
 
 						return true;
 					}
-					else if (key == Keys.Down || key == Keys.Up)
+					if (key == Keys.Down || key == Keys.Up)
 					{
-						HotSpot toSelect = null;
+						HotSpot toSelect;
+						bool isAtEnd;
+
+						var query = hotSpots
+							.Where(h => h.Type == HotSpotType.Select)
+							.Where(h => h.Node.ParentNode == selectionCaret.Node.ParentNode);
+
 						if (key == Keys.Down)
 						{
-							toSelect = hotSpots
+							var temp = query
 								.SkipUntil(h => h.Node == selectionCaret.Node)
-								.Where(h => h.Type == HotSpotType.Select)
-								.Where(h => h.Node.ParentNode == selectionCaret.Node.ParentNode)
-								.FirstOrDefault();
+								.ToList();
+
+							toSelect = temp.FirstOrDefault();
+							isAtEnd = toSelect != null && toSelect == temp.LastOrDefault();
 						}
 						else
 						{
-							toSelect = hotSpots
+							var temp = query
 								.TakeWhile(h => h.Node != selectionCaret.Node)
-								.Where(h => h.Type == HotSpotType.Select)
-								.Where(h => h.Node.ParentNode == selectionCaret.Node.ParentNode)
-								.LastOrDefault();
+								.ToList();
+
+							toSelect = temp.LastOrDefault();
+							isAtEnd = toSelect != null && toSelect == temp.FirstOrDefault();
 						}
 
-						if (toSelect != null)
+						if (toSelect != null && !(toSelect.Node is ClassNode))
 						{
 							if (modifier != Keys.Shift)
 							{
@@ -587,7 +618,8 @@ namespace ReClassNET.UI
 								{
 									Address = containerNode.Offset.Add(n.Offset),
 									Node = n,
-									Memory = toSelect.Memory
+									Memory = toSelect.Memory,
+									Level = toSelect.Level
 								}))
 							{
 								spot.Node.IsSelected = true;
@@ -596,9 +628,23 @@ namespace ReClassNET.UI
 
 							OnSelectionChanged();
 
+							if (isAtEnd)
+							{
+								DoScroll(ScrollOrientation.VerticalScroll, key == Keys.Down ? 1 : - 1);
+							}
+
 							Invalidate();
 
 							return true;
+						}
+					}
+					else if (key == Keys.Left || key == Keys.Right)
+					{
+						if (selectedNodes.Count == 1)
+						{
+							var selected = selectedNodes[0];
+
+							selected.Node.SetLevelOpen(selected.Level, key == Keys.Right);
 						}
 					}
 				}
@@ -644,12 +690,8 @@ namespace ReClassNET.UI
 		private void editBox_Committed(object sender, EventArgs e)
 		{
 			var hotspotTextBox = sender as HotSpotTextBox;
-			if (hotspotTextBox == null)
-			{
-				return;
-			}
 
-			var hotSpot = hotspotTextBox.HotSpot;
+			var hotSpot = hotspotTextBox?.HotSpot;
 			if (hotSpot != null)
 			{
 				try
@@ -667,7 +709,7 @@ namespace ReClassNET.UI
 
 		private void selectedNodeContextMenuStrip_Opening(object sender, CancelEventArgs e)
 		{
-			var count = selectedNodes.Count();
+			var count = selectedNodes.Count;
 			var node = selectedNodes.Select(s => s.Node).FirstOrDefault();
 
 			var nodeIsClass = node is ClassNode;
@@ -719,29 +761,6 @@ namespace ReClassNET.UI
 			ReplaceSelectedNodesWithType(item.Value);
 		}
 
-		private void removeToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			RemoveSelectedNodes();
-		}
-
-		private void copyAddressToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			if (selectedNodes.Count > 0)
-			{
-				Clipboard.SetText(selectedNodes.First().Address.ToString("X"));
-			}
-		}
-
-		private void copyNodeToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			CopySelectedNodesToClipboard();
-		}
-
-		private void pasteNodesToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			PasteNodeFromClipboardToSelection();
-		}
-
 		private void createClassFromNodesToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			if (selectedNodes.Count > 0 && !(selectedNodes[0].Node is ClassNode))
@@ -749,11 +768,11 @@ namespace ReClassNET.UI
 				var parentNode = selectedNodes[0].Node.ParentNode as ClassNode;
 				if (parentNode != null)
 				{
-					var classNode = ClassNode.Create();
-					selectedNodes.Select(h => h.Node).ForEach(classNode.AddNode);
+					var newClassNode = ClassNode.Create();
+					selectedNodes.Select(h => h.Node).ForEach(newClassNode.AddNode);
 
 					var classInstanceNode = new ClassInstanceNode();
-					classInstanceNode.ChangeInnerNode(classNode);
+					classInstanceNode.ChangeInnerNode(newClassNode);
 
 					parentNode.InsertNode(selectedNodes[0].Node, classInstanceNode);
 
@@ -766,7 +785,7 @@ namespace ReClassNET.UI
 
 		private void dissectNodesToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			var hexNodes = selectedNodes.Where(h => h.Node is BaseHexNode);
+			var hexNodes = selectedNodes.Where(h => h.Node is BaseHexNode).ToList();
 			if (hexNodes.Any())
 			{
 				foreach (var g in hexNodes.GroupBy(n => n.Node.ParentNode))
@@ -775,6 +794,39 @@ namespace ReClassNET.UI
 				}
 
 				ClearSelection();
+			}
+		}
+
+		private void findOutWhatAccessesThisAddressToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			FindWhatInteractsWithSelectedNode(false);
+		}
+
+		private void findOutWhatWritesToThisAddressToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			FindWhatInteractsWithSelectedNode(true);
+		}
+
+		private void copyNodeToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			CopySelectedNodesToClipboard();
+		}
+
+		private void pasteNodesToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			PasteNodeFromClipboardToSelection();
+		}
+
+		private void removeToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			RemoveSelectedNodes();
+		}
+
+		private void copyAddressToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			if (selectedNodes.Count > 0)
+			{
+				Clipboard.SetText(selectedNodes.First().Address.ToString("X"));
 			}
 		}
 
@@ -813,29 +865,31 @@ namespace ReClassNET.UI
 		{
 			Contract.Requires(selection != null);
 
-			var it = selection.GetEnumerator();
-			if (!it.MoveNext())
+			List<HotSpot> partition;
+			using (var it = selection.GetEnumerator())
 			{
-				yield break;
-			}
-
-			var partition = new List<HotSpot>();
-			partition.Add(it.Current);
-
-			var last = it.Current;
-
-			while (it.MoveNext())
-			{
-				if (it.Current.Address != last.Address + last.Node.MemorySize)
+				if (!it.MoveNext())
 				{
-					yield return partition;
-
-					partition = new List<HotSpot>();
+					yield break;
 				}
 
-				partition.Add(it.Current);
+				partition = new List<HotSpot> { it.Current };
 
-				last = it.Current;
+				var last = it.Current;
+
+				while (it.MoveNext())
+				{
+					if (it.Current.Address != last.Address + last.Node.MemorySize)
+					{
+						yield return partition;
+
+						partition = new List<HotSpot>();
+					}
+
+					partition.Add(it.Current);
+
+					last = it.Current;
+				}
 			}
 
 			if (partition.Count != 0)
@@ -924,7 +978,8 @@ namespace ReClassNET.UI
 									{
 										Memory = selected.Memory,
 										Address = n.ParentNode.Offset.Add(n.Offset),
-										Node = n
+										Node = n,
+										Level = selected.Level
 									})
 							);
 						}
@@ -973,11 +1028,11 @@ namespace ReClassNET.UI
 		private void PasteNodeFromClipboardToSelection()
 		{
 			var result = ReClassClipboard.Paste(project, Program.Logger);
-			foreach (var classNode in result.Item1)
+			foreach (var pastedClassNode in result.Item1)
 			{
-				if (!project.ContainsClass(classNode.Uuid))
+				if (!project.ContainsClass(pastedClassNode.Uuid))
 				{
-					project.AddClass(classNode);
+					project.AddClass(pastedClassNode);
 				}
 			}
 
@@ -1024,6 +1079,28 @@ namespace ReClassNET.UI
 			}
 
 			return true;
+		}
+
+		private void FindWhatInteractsWithSelectedNode(bool writeOnly)
+		{
+			var selectedNode = selectedNodes.FirstOrDefault();
+			if (selectedNode == null)
+			{
+				return;
+			}
+
+			var debugger = Memory.Process.Debugger;
+			if (debugger.AskUserAndStartDebugger())
+			{
+				if (writeOnly)
+				{
+					debugger.FindWhatWritesToAddress(selectedNode.Address, selectedNode.Node.MemorySize);
+				}
+				else
+				{
+					debugger.FindWhatAccessesAddress(selectedNode.Address, selectedNode.Node.MemorySize);
+				}
+			}
 		}
 	}
 }

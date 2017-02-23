@@ -13,7 +13,7 @@ namespace ReClassNET.Nodes
 		public static DateTime CurrentHighlightTime;
 		public static readonly TimeSpan HightlightDuration = TimeSpan.FromSeconds(1);
 
-		public BaseHexNode()
+		protected BaseHexNode()
 		{
 			Contract.Ensures(buffer != null);
 
@@ -37,12 +37,12 @@ namespace ReClassNET.Nodes
 			x += TextPadding + 16;
 			x = AddAddressOffset(view, x, y);
 
-			if (Program.Settings.ShowNodeText)
+			if (view.Settings.ShowNodeText)
 			{
-				x = AddText(view, x, y, Program.Settings.TextColor, HotSpot.NoneId, text);
+				x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, text);
 			}
 
-			var color = Program.Settings.HighlightChangedValues && highlightUntil > CurrentHighlightTime ? Program.Settings.HighlightColor : Program.Settings.HexColor;
+			var color = view.Settings.HighlightChangedValues && highlightUntil > CurrentHighlightTime ? view.Settings.HighlightColor : view.Settings.HexColor;
 			var changed = false;
 			for (var i = 0; i < length; ++i)
 			{
@@ -74,13 +74,14 @@ namespace ReClassNET.Nodes
 
 		/// <summary>Updates the node from the given spot. Sets the value of the selected byte.</summary>
 		/// <param name="spot">The spot.</param>
-		public void Update(HotSpot spot, int length)
+		/// <param name="maxId">The highest spot id.</param>
+		public void Update(HotSpot spot, int maxId)
 		{
 			Contract.Requires(spot != null);
 
 			base.Update(spot);
 
-			if (spot.Id >= 0 && spot.Id < length)
+			if (spot.Id >= 0 && spot.Id < maxId)
 			{
 				byte val;
 				if (byte.TryParse(spot.Text, NumberStyles.HexNumber, null, out val))

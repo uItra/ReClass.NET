@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Runtime.InteropServices;
-using ReClassNET.Memory;
-using ReClassNET.Util;
+using ReClassNET.Core;
 using ReClassNET.Logger;
+using ReClassNET.Native;
+using ReClassNET.Util;
 
 namespace ReClassNET.Plugins
 {
@@ -15,15 +15,15 @@ namespace ReClassNET.Plugins
 	{
 		private readonly List<PluginInfo> plugins = new List<PluginInfo>();
 
-		private readonly IPluginHost host = null;
-		private readonly NativeHelper nativeHelper;
+		private readonly IPluginHost host;
+		private readonly CoreFunctionsManager coreFunctions;
 
-		public PluginManager(IPluginHost host, NativeHelper nativeHelper)
+		public PluginManager(IPluginHost host, CoreFunctionsManager coreFunctions)
 		{
 			Contract.Requires(host != null);
 
 			this.host = host;
-			this.nativeHelper = nativeHelper;
+			this.coreFunctions = coreFunctions;
 		}
 
 		IEnumerator IEnumerable.GetEnumerator()
@@ -62,12 +62,14 @@ namespace ReClassNET.Plugins
 
 		private void LoadPlugins(IEnumerable<FileInfo> files, ILogger logger)
 		{
+			// TODO: How to include plugin infos for unix files as they don't have embedded version info.
+
 			Contract.Requires(files != null);
 			Contract.Requires(logger != null);
 
 			foreach (var fi in files)
 			{
-				FileVersionInfo fvi = null;
+				FileVersionInfo fvi;
 				try
 				{
 					fvi = FileVersionInfo.GetVersionInfo(fi.FullName);
@@ -88,8 +90,6 @@ namespace ReClassNET.Plugins
 					if (!pi.IsNative)
 					{
 						pi.Interface = CreatePluginInstance(pi.FilePath);
-
-						pi.NativeHandle = Marshal.GetHINSTANCE(pi.Interface.GetType().Module);
 					}
 					else
 					{
@@ -105,12 +105,10 @@ namespace ReClassNET.Plugins
 					}
 					else
 					{
-						nativeHelper.InintializeNativeModule(pi.NativeHandle);
-					}
-
-					if (!pi.NativeHandle.IsNull())
-					{
-						nativeHelper.RegisterProvidedNativeMethods(pi.NativeHandle, pi.Name);
+						coreFunctions.RegisterFunctions(
+							pi.Name,
+							new NativeCoreWrapper(pi.NativeHandle)
+						);
 					}
 
 					plugins.Add(pi);
@@ -155,7 +153,7 @@ namespace ReClassNET.Plugins
 
 			var handle = Activator.CreateInstanceFrom(filePath, type);
 
-			var plugin = (handle.Unwrap() as Plugin);
+			var plugin = handle.Unwrap() as Plugin;
 			if (plugin == null)
 			{
 				throw new FileLoadException();

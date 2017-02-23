@@ -2,10 +2,11 @@
 using System.Data;
 using System.Diagnostics.Contracts;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using ReClassNET.Core;
 using ReClassNET.Memory;
+using ReClassNET.Native;
 using ReClassNET.UI;
 
 namespace ReClassNET.Forms
@@ -20,34 +21,31 @@ namespace ReClassNET.Forms
 			"smss.exe", "csrss.exe", "lsass.exe", "winlogon.exe", "wininit.exe", "dwm.exe"
 		};
 
-		private readonly NativeHelper nativeHelper;
+		private readonly CoreFunctionsManager coreFunctions;
 
 		/// <summary>Gets the selected process.</summary>
-		public ProcessInfo SelectedProcess
-		{
-			get
-			{
-				var row = (processDataGridView.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault()?.DataBoundItem as DataRowView)?.Row;
-				if (row != null)
-				{
-					return new ProcessInfo(nativeHelper, row.Field<int>("id"), row.Field<string>("name"), row.Field<string>("path"));
-				}
-				return null;
-			}
-		}
+		public ProcessInfo SelectedProcess => (processDataGridView.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault()?.DataBoundItem as DataRowView)
+			?.Row
+			?.Field<ProcessInfo>("info");
 
 		/// <summary>Gets if symbols should get loaded.</summary>
 		public bool LoadSymbols => loadSymbolsCheckBox.Checked;
 
-		public ProcessBrowserForm(NativeHelper nativeHelper, string previousProcess)
+		public ProcessBrowserForm(CoreFunctionsManager coreFunctions, string previousProcess)
 		{
-			Contract.Requires(nativeHelper != null);
+			Contract.Requires(coreFunctions != null);
 
-			this.nativeHelper = nativeHelper;
+			this.coreFunctions = coreFunctions;
 
 			InitializeComponent();
 
 			processDataGridView.AutoGenerateColumns = false;
+
+			// TODO: Workaround, Mono can't display a DataGridViewImageColumn.
+			if (NativeMethods.IsUnix())
+			{
+				iconColumn.Visible = false;
+			}
 
 			previousProcessLinkLabel.Text = string.IsNullOrEmpty(previousProcess) ? NoPreviousProcess : previousProcess;
 
@@ -112,19 +110,20 @@ namespace ReClassNET.Forms
 			var dt = new DataTable();
 			dt.Columns.Add("icon", typeof(Icon));
 			dt.Columns.Add("name", typeof(string));
-			dt.Columns.Add("id", typeof(int));
+			dt.Columns.Add("id", typeof(IntPtr));
 			dt.Columns.Add("path", typeof(string));
+			dt.Columns.Add("info", typeof(ProcessInfo));
 
-			nativeHelper.EnumerateProcesses((pid, path) =>
+			coreFunctions.EnumerateProcesses(p =>
 			{
-				var moduleName = Path.GetFileName(path);
-				if (!filterCheckBox.Checked || !CommonProcesses.Contains(moduleName.ToLower()))
+				if (!filterCheckBox.Checked || !CommonProcesses.Contains(p.Name.ToLower()))
 				{
 					var row = dt.NewRow();
-					row["icon"] = ShellIcon.GetSmallIcon(path);
-					row["name"] = moduleName;
-					row["id"] = pid;
-					row["path"] = path;
+					row["icon"] = NativeMethods.GetIconForFile(p.Path);
+					row["name"] = p.Name;
+					row["id"] = p.Id;
+					row["path"] = p.Path;
+					row["info"] = p;
 					dt.Rows.Add(row);
 				}
 			});

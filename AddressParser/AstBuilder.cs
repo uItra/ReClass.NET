@@ -89,12 +89,11 @@ namespace ReClassNET.AddressParser
 
 		private void PopOperations(bool untillLeftBracket)
 		{
-			Operation lastOperation = null;
 			while (operatorStack.Count > 0 && operatorStack.Peek().TokenType != TokenType.LeftBracket)
 			{
 				var token = operatorStack.Pop();
 
-				lastOperation = ConvertOperation(token);
+				var lastOperation = ConvertOperation(token);
 
 				resultStack.Push(lastOperation);
 			}
@@ -164,7 +163,7 @@ namespace ReClassNET.AddressParser
 		{
 			if (resultStack.Count > 1)
 			{
-				var offset = resultStack.Skip(1).Where(o => o is OffsetOperation).FirstOrDefault() as OffsetOperation;
+				var offset = resultStack.Skip(1).FirstOrDefault(o => o is OffsetOperation) as OffsetOperation;
 				if (offset != null)
 				{
 					throw new ParseException($"Unexpected offset '{offset.Value}' found.");

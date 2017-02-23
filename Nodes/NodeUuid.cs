@@ -25,6 +25,7 @@ namespace ReClassNET.Nodes
 		}
 
 		private byte[] uuidBytes;
+		private readonly int uuidHash;
 
 		/// <summary>Get the 16 UUID bytes.</summary>
 		public byte[] UuidBytes => uuidBytes;
@@ -44,17 +45,21 @@ namespace ReClassNET.Nodes
 			{
 				SetZero();
 			}
+
+			uuidHash = CalculateHash();
 		}
 
 		/// <summary>Construct a new UUID object.</summary>
 		/// <param name="valueBytes">Initial value of the <see cref="NodeUuid"/> object.</param>
-		public NodeUuid(byte[] valueBytes)
+		private NodeUuid(byte[] valueBytes)
 		{
 			Contract.Requires(valueBytes != null);
 			Contract.Requires(valueBytes.Length == UuidSize);
 			Contract.Ensures(uuidBytes != null);
 
 			SetValue(valueBytes);
+
+			uuidHash = CalculateHash();
 		}
 
 		public static NodeUuid FromBase64String(string base64, bool createNew)
@@ -103,7 +108,7 @@ namespace ReClassNET.Nodes
 		}
 
 		/// <summary>Sets the UUID to the given value.</summary>
-		/// <param name="uuidBytes">Initial value of the <see cref="NodeUuid"/> object.</param>
+		/// <param name="valueBytes">Initial value of the <see cref="NodeUuid"/> object.</param>
 		private void SetValue(byte[] valueBytes)
 		{
 			Contract.Requires(valueBytes != null);
@@ -135,7 +140,7 @@ namespace ReClassNET.Nodes
 				return false;
 			}
 
-			for (int i = 0; i < UuidSize; ++i)
+			for (var i = 0; i < UuidSize; ++i)
 			{
 				if (uuidBytes[i] != other.uuidBytes[i])
 				{
@@ -146,26 +151,27 @@ namespace ReClassNET.Nodes
 			return true;
 		}
 
-		private int hash = 0;
-		public override int GetHashCode()
+		private int CalculateHash()
 		{
-			if (hash == 0)
+			var hash = 17;
+			unchecked
 			{
-				unchecked
+				foreach (var b in uuidBytes)
 				{
-					hash = 17;
-					foreach (var b in uuidBytes)
-					{
-						hash = hash * 31 + b.GetHashCode();
-					}
+					hash = hash * 31 + b.GetHashCode();
 				}
 			}
 			return hash;
 		}
 
+		public override int GetHashCode()
+		{
+			return uuidHash;
+		}
+
 		public int CompareTo(NodeUuid other)
 		{
-			for (int i = 0; i < UuidSize; ++i)
+			for (var i = 0; i < UuidSize; ++i)
 			{
 				if (uuidBytes[i] < other.uuidBytes[i])
 				{

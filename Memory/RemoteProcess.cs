@@ -1,32 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ReClassNET.AddressParser;
+using ReClassNET.Core;
+using ReClassNET.Debugger;
+using ReClassNET.Native;
 using ReClassNET.Symbols;
 using ReClassNET.Util;
 
 namespace ReClassNET.Memory
 {
-	public class RemoteProcess
+	public delegate void RemoteProcessEvent(RemoteProcess sender);
+
+	public class RemoteProcess : IDisposable
 	{
-		private readonly NativeHelper nativeHelper;
-		public NativeHelper NativeHelper => nativeHelper;
+		private readonly object processSync = new object();
 
-		private ProcessInfo process;
-		public ProcessInfo Process
-		{
-			get { return process; }
-			set { if (process != value) { process = value; rttiCache.Clear(); ProcessChanged?.Invoke(this); } }
-		}
+		private readonly CoreFunctionsManager coreFunctions;
 
-		public delegate void RemoteProcessChangedEvent(RemoteProcess sender);
-		public event RemoteProcessChangedEvent ProcessChanged;
+		private readonly RemoteDebugger debugger;
 
 		private readonly Dictionary<IntPtr, string> rttiCache = new Dictionary<IntPtr, string>();
 
@@ -35,22 +32,93 @@ namespace ReClassNET.Memory
 		private readonly List<Section> sections = new List<Section>();
 
 		private readonly SymbolStore symbols = new SymbolStore();
+
+		private ProcessInfo process;
+		private IntPtr handle;
+
+		/// <summary>Event which gets invoked when a process was opened.</summary>
+		public event RemoteProcessEvent ProcessAttached;
+
+		/// <summary>Event which gets invoked before a process gets closed.</summary>
+		public event RemoteProcessEvent ProcessClosing;
+
+		/// <summary>Event which gets invoked after a process was closed.</summary>
+		public event RemoteProcessEvent ProcessClosed;
+
+		public CoreFunctionsManager CoreFunctions => coreFunctions;
+
+		public RemoteDebugger Debugger => debugger;
+
+		public ProcessInfo UnderlayingProcess => process;
+
 		public SymbolStore Symbols => symbols;
 
-		public bool IsValid => process != null && nativeHelper.IsProcessValid(process.Handle);
+		public bool IsValid => process != null && coreFunctions.IsProcessValid(handle);
 
-		public RemoteProcess(NativeHelper nativeHelper)
+		public RemoteProcess(CoreFunctionsManager coreFunctions)
 		{
-			Contract.Requires(nativeHelper != null);
+			Contract.Requires(coreFunctions != null);
 
-			this.nativeHelper = nativeHelper;
+			this.coreFunctions = coreFunctions;
+
+			debugger = new RemoteDebugger(this);
+		}
+
+		public void Dispose()
+		{
+			Close();
+		}
+
+		/// <summary>Opens the given process to gather informations from.</summary>
+		/// <param name="info">The process information.</param>
+		public void Open(ProcessInfo info)
+		{
+			Contract.Requires(info != null);
+
+			if (process != info)
+			{
+				lock (processSync)
+				{
+					Close();
+
+					rttiCache.Clear();
+
+					process = info;
+
+					handle = coreFunctions.OpenRemoteProcess(process.Id, ProcessAccess.Full);
+				}
+
+				ProcessAttached?.Invoke(this);
+			}
+		}
+
+		/// <summary>Closes the underlaying process. If the debugger is attached, it will automaticly detached.</summary>
+		public void Close()
+		{
+			if (process != null)
+			{
+				ProcessClosing?.Invoke(this);
+
+				lock (processSync)
+				{
+					debugger.Terminate();
+
+					coreFunctions.CloseRemoteProcess(handle);
+
+					handle = IntPtr.Zero;
+
+					process = null;
+				}
+
+				ProcessClosed?.Invoke(this);
+			}
 		}
 
 		#region ReadMemory
 
 		/// <summary>Reads remote memory from the address into the buffer.</summary>
 		/// <param name="address">The address to read from.</param>
-		/// <param name="data">[out] The data buffer to fill. If the remote process is not valid, the buffer will get filled with zeros.</param>
+		/// <param name="buffer">[out] The data buffer to fill. If the remote process is not valid, the buffer will get filled with zeros.</param>
 		public bool ReadRemoteMemoryIntoBuffer(IntPtr address, ref byte[] buffer)
 		{
 			Contract.Requires(buffer != null);
@@ -61,7 +129,7 @@ namespace ReClassNET.Memory
 
 		/// <summary>Reads remote memory from the address into the buffer.</summary>
 		/// <param name="address">The address to read from.</param>
-		/// <param name="data">[out] The data buffer to fill. If the remote process is not valid, the buffer will get filled with zeros.</param>
+		/// <param name="buffer">[out] The data buffer to fill. If the remote process is not valid, the buffer will get filled with zeros.</param>
 		/// <param name="offset">The offset in the data.</param>
 		/// <param name="length">The number of bytes to read.</param>
 		public bool ReadRemoteMemoryIntoBuffer(IntPtr address, ref byte[] buffer, int offset, int length)
@@ -75,14 +143,14 @@ namespace ReClassNET.Memory
 
 			if (!IsValid)
 			{
-				Process = null;
+				Close();
 
 				buffer.FillWithZero();
 
 				return false;
 			}
 
-			return nativeHelper.ReadRemoteMemory(Process.Handle, address, buffer, offset, length);
+			return coreFunctions.ReadRemoteMemory(handle, address, ref buffer, offset, length);
 		}
 
 		/// <summary>Reads <paramref name="size"/> bytes from the address in the remote process.</summary>
@@ -107,9 +175,9 @@ namespace ReClassNET.Memory
 		{
 			var data = ReadRemoteMemory(address, Marshal.SizeOf<T>());
 
-			var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-			var obj = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T));
-			handle.Free();
+			var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+			var obj = (T)Marshal.PtrToStructure(gcHandle.AddrOfPinnedObject(), typeof(T));
+			gcHandle.Free();
 
 			return obj;
 		}
@@ -187,7 +255,7 @@ namespace ReClassNET.Memory
 		{
 			if (address.MayBeValid())
 			{
-				string rtti = null;
+				string rtti;
 				if (!rttiCache.TryGetValue(address, out rtti))
 				{
 					var objectLocatorPtr = ReadRemoteObject<IntPtr>(address - IntPtr.Size);
@@ -232,7 +300,7 @@ namespace ReClassNET.Memory
 									var name = ReadRemoteUTF8StringUntilFirstNullCharacter(typeDescriptorPtr + 0x0C, 60);
 									if (name.EndsWith("@@"))
 									{
-										name = NativeMethods.UnDecorateSymbolName("?" + name);
+										name = NativeMethods.UndecorateSymbolName("?" + name);
 									}
 
 									sb.Append(name);
@@ -299,7 +367,7 @@ namespace ReClassNET.Memory
 
 										if (name.EndsWith("@@"))
 										{
-											name = NativeMethods.UnDecorateSymbolName("?" + name);
+											name = NativeMethods.UndecorateSymbolName("?" + name);
 										}
 
 										sb.Append(name);
@@ -343,7 +411,7 @@ namespace ReClassNET.Memory
 				return false;
 			}
 
-			return nativeHelper.WriteRemoteMemory(Process.Handle, address, data, data.Length);
+			return coreFunctions.WriteRemoteMemory(handle, address, ref data, 0, data.Length);
 		}
 
 		/// <summary>Writes the given <paramref name="value"/> to the <paramref name="address"/> in the remote process.</summary>
@@ -355,9 +423,9 @@ namespace ReClassNET.Memory
 		{
 			var data = new byte[Marshal.SizeOf<T>()];
 
-			var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-			Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false);
-			handle.Free();
+			var gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+			Marshal.StructureToPtr(value, gcHandle.AddrOfPinnedObject(), false);
+			gcHandle.Free();
 
 			return WriteRemoteMemory(address, data);
 		}
@@ -385,8 +453,7 @@ namespace ReClassNET.Memory
 			lock (modules)
 			{
 				return modules
-					.Where(m => m.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase))
-					.FirstOrDefault();
+					.FirstOrDefault(m => m.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
 			}
 		}
 
@@ -416,6 +483,16 @@ namespace ReClassNET.Memory
 			return null;
 		}
 
+		public void EnumerateRemoteSectionsAndModules(Action<Section> callbackSection, Action<Module> callbackModule)
+		{
+			if (!IsValid)
+			{
+				return;
+			}
+
+			coreFunctions.EnumerateRemoteSectionsAndModules(handle, callbackSection, callbackModule);
+		}
+
 		/// <summary>Updates the process informations.</summary>
 		public void UpdateProcessInformations()
 		{
@@ -439,7 +516,9 @@ namespace ReClassNET.Memory
 					sections.Clear();
 				}
 
-				return Task.CompletedTask;
+				// TODO: Mono doesn't support Task.CompletedTask at the moment.
+				//return Task.CompletedTask;
+				return Task.FromResult(true);
 			}
 
 			return Task.Run(() =>
@@ -447,7 +526,7 @@ namespace ReClassNET.Memory
 				var newModules = new List<Module>();
 				var newSections = new List<Section>();
 
-				nativeHelper.EnumerateRemoteSectionsAndModules(process.Handle, newSections.Add, newModules.Add);
+				EnumerateRemoteSectionsAndModules(newSections.Add, newModules.Add);
 
 				newModules.Sort((m1, m2) => m1.Start.CompareTo(m2.Start));
 				newSections.Sort((s1, s2) => s1.Start.CompareTo(s2.Start));
@@ -493,7 +572,11 @@ namespace ReClassNET.Memory
 		/// <returns>The task.</returns>
 		public Task LoadAllSymbolsAsync(IProgress<Tuple<Module, IEnumerable<Module>>> progress, CancellationToken token)
 		{
-			var copy = modules.ToList();
+			List<Module> copy;
+			lock (modules)
+			{
+				copy = modules.ToList();
+			}
 
 			// Try to resolve all symbols in a background thread. This can take a long time because symbols are downloaded from the internet.
 			// The COM objects can only be used in the thread they were created so we can't use them.
@@ -533,6 +616,16 @@ namespace ReClassNET.Memory
 				TaskContinuationOptions.None,
 				TaskScheduler.FromCurrentSynchronizationContext()
 			);
+		}
+
+		public void ControlRemoteProcess(ControlRemoteProcessAction action)
+		{
+			if (!IsValid)
+			{
+				return;
+			}
+
+			coreFunctions.ControlRemoteProcess(handle, action);
 		}
 	}
 }

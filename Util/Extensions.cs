@@ -11,12 +11,13 @@ namespace ReClassNET.Util
 	public static class Extensions
 	{
 		[Pure]
+		[DebuggerStepThrough]
 		public static int ToRgb(this Color color)
 		{
 			return 0xFFFFFF & color.ToArgb();
 		}
 
-		[Pure]
+		[DebuggerStepThrough]
 		public static void FillWithZero(this byte[] b)
 		{
 			Contract.Requires(b != null);
@@ -28,6 +29,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static Point OffsetEx(this Point p, int x, int y)
 		{
 			var temp = p;
@@ -60,12 +62,14 @@ namespace ReClassNET.Util
 		#region Pointer
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsNull(this IntPtr ptr)
 		{
 			return ptr == IntPtr.Zero;
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool MayBeValid(this IntPtr ptr)
 		{
 #if WIN64
@@ -76,6 +80,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static IntPtr Add(this IntPtr lhs, IntPtr rhs)
 		{
 #if WIN64
@@ -86,6 +91,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static IntPtr Sub(this IntPtr lhs, IntPtr rhs)
 		{
 #if WIN64
@@ -96,6 +102,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static IntPtr Mul(this IntPtr lhs, IntPtr rhs)
 		{
 #if WIN64
@@ -106,6 +113,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static IntPtr Div(this IntPtr lhs, IntPtr rhs)
 		{
 			Contract.Requires(!rhs.IsNull());
@@ -118,6 +126,18 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
+		public static int Mod(this IntPtr lhs, int mod)
+		{
+#if WIN64
+			return (int)(lhs.ToInt64() % mod);
+#else
+			return lhs.ToInt32() % mod;
+#endif
+		}
+
+		[Pure]
+		[DebuggerStepThrough]
 		public static bool InRange(this IntPtr address, IntPtr start, IntPtr end)
 		{
 #if WIN64
@@ -130,6 +150,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static int CompareTo(this IntPtr lhs, IntPtr rhs)
 		{
 #if WIN64
@@ -140,6 +161,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static int CompareToRange(this IntPtr address, IntPtr start, IntPtr end)
 		{
 			if (InRange(address, start, end))
@@ -154,11 +176,13 @@ namespace ReClassNET.Util
 		#region String
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsPrintable(this char c)
 		{
 			return ' ' <= c && c <= '~';
 		}
 
+		[DebuggerStepThrough]
 		public static IEnumerable<char> InterpretAsUTF8(this IEnumerable<byte> source)
 		{
 			Contract.Requires(source != null);
@@ -166,6 +190,7 @@ namespace ReClassNET.Util
 			return source.Select(b => (char)b);
 		}
 
+		[DebuggerStepThrough]
 		public static IEnumerable<char> InterpretAsUTF16(this IEnumerable<byte> source)
 		{
 			Contract.Requires(source != null);
@@ -176,6 +201,7 @@ namespace ReClassNET.Util
 			return chars;
 		}
 
+		[DebuggerStepThrough]
 		public static bool IsPrintableData(this IEnumerable<char> source)
 		{
 			Contract.Requires(source != null);
@@ -183,6 +209,7 @@ namespace ReClassNET.Util
 			return IsLikelyPrintableData(source) >= 1.0f;
 		}
 
+		[DebuggerStepThrough]
 		public static float IsLikelyPrintableData(this IEnumerable<char> source)
 		{
 			Contract.Requires(source != null);
@@ -212,6 +239,7 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static string LimitLength(this string s, int length)
 		{
 			Contract.Requires(s != null);
@@ -229,12 +257,14 @@ namespace ReClassNET.Util
 		#region Floating Point
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsNearlyEqual(this float val, float other)
 		{
 			return IsNearlyEqual(val, other, float.Epsilon);
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsNearlyEqual(this float val, float other, float epsilon)
 		{
 			var diff = Math.Abs(val - other);
@@ -254,12 +284,14 @@ namespace ReClassNET.Util
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsNearlyEqual(this double val, double other)
 		{
 			return IsNearlyEqual(val, other, double.Epsilon);
 		}
 
 		[Pure]
+		[DebuggerStepThrough]
 		public static bool IsNearlyEqual(this double val, double other, double epsilon)
 		{
 			var diff = Math.Abs(val - other);
@@ -282,6 +314,7 @@ namespace ReClassNET.Util
 
 		#region List
 
+		[DebuggerStepThrough]
 		public static T BinaryFind<T>(this IList<T> source, Func<T, int> comparer)
 		{
 			Contract.Requires(source != null);
@@ -450,6 +483,7 @@ namespace ReClassNET.Util
 			}
 		}
 
+		[DebuggerStepThrough]
 		public static bool SequenceEqualsEx<T>(this IEnumerable<T> first, IEnumerable<T> second)
 		{
 			Contract.Requires(first != null);
@@ -458,13 +492,14 @@ namespace ReClassNET.Util
 			return SequenceEqualsEx(first, second, EqualityComparer<T>.Default);
 		}
 
-		public static bool SequenceEqualsEx<T>(this IEnumerable<T> first, IEnumerable<T> second, IEqualityComparer<T> comparer)
+		[DebuggerStepThrough]
+		public static bool SequenceEqualsEx<TSource>(this IEnumerable<TSource> first, IEnumerable<TSource> second, IEqualityComparer<TSource> comparer)
 		{
 			Contract.Requires(first != null);
 			Contract.Requires(second != null);
 			Contract.Requires(comparer != null);
 
-			var counter = new Dictionary<T, int>(comparer);
+			var counter = new Dictionary<TSource, int>(comparer);
 			foreach (var element in first)
 			{
 				if (counter.ContainsKey(element))

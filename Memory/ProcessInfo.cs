@@ -1,55 +1,21 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
-using ReClassNET.Util;
 
 namespace ReClassNET.Memory
 {
-	public class ProcessInfo : IDisposable
+	public class ProcessInfo
 	{
-		private readonly NativeHelper nativeHelper;
-
-		private IntPtr handle;
-
-		public int Id { get; }
-		public IntPtr Handle => Open();
+		public IntPtr Id { get; }
 		public string Name { get; }
 		public string Path { get; }
 
-		public ProcessInfo(NativeHelper nativeHelper, int id, string name, string path)
+		public ProcessInfo(IntPtr id, string path)
 		{
-			Contract.Requires(nativeHelper != null);
-			Contract.Requires(name != null);
 			Contract.Requires(path != null);
 
-			this.nativeHelper = nativeHelper;
-
 			Id = id;
-			Name = name;
+			Name = System.IO.Path.GetFileName(path);
 			Path = path;
-		}
-
-		public void Dispose()
-		{
-			Close();
-		}
-
-		public IntPtr Open()
-		{
-			if (handle.IsNull())
-			{
-				handle = nativeHelper.OpenRemoteProcess(Id, NativeMethods.PROCESS_ALL_ACCESS);
-			}
-			return handle;
-		}
-
-		public void Close()
-		{
-			if (!handle.IsNull())
-			{
-				nativeHelper.CloseRemoteProcess(handle);
-
-				handle = IntPtr.Zero;
-			}
 		}
 	}
 }

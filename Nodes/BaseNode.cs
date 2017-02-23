@@ -11,7 +11,7 @@ namespace ReClassNET.Nodes
 {
 	public delegate void NodeEventHandler(BaseNode sender);
 
-	[DebuggerDisplay("{DebuggerDisplay,nq}")]
+	[DebuggerDisplay("{" + nameof(DebuggerDisplay) + ",nq}")]
 	[ContractClass(typeof(BaseNodeContract))]
 	public abstract class BaseNode
 	{
@@ -63,7 +63,7 @@ namespace ReClassNET.Nodes
 		}
 
 		/// <summary>Constructor which sets a unique <see cref="Name"/>.</summary>
-		public BaseNode()
+		protected BaseNode()
 		{
 			Contract.Ensures(name != null);
 			Contract.Ensures(comment != null);
@@ -158,6 +158,14 @@ namespace ReClassNET.Nodes
 			levelsOpen[level] = !levelsOpen[level];
 		}
 
+		/// <summary>Sets the specific level.</summary>
+		/// <param name="level">The level to set.</param>
+		/// <param name="open">True to open.</param>
+		internal void SetLevelOpen(int level, bool open)
+		{
+			levelsOpen[level] = open;
+		}
+
 		/// <summary>Adds a <see cref="HotSpot"/> the user can interact with.</summary>
 		/// <param name="view">The view information.</param>
 		/// <param name="spot">The spot.</param>
@@ -233,18 +241,14 @@ namespace ReClassNET.Nodes
 			Contract.Requires(view.Context != null);
 			Contract.Requires(view.Font != null);
 
-			if (Program.Settings.ShowNodeOffset)
+			if (view.Settings.ShowNodeOffset)
 			{
-				x = AddText(view, x, y, Program.Settings.OffsetColor, HotSpot.NoneId, $"{Offset.ToInt32():X04}") + view.Font.Width;
+				x = AddText(view, x, y, view.Settings.OffsetColor, HotSpot.NoneId, $"{Offset.ToInt32():X04}") + view.Font.Width;
 			}
 
-			if (Program.Settings.ShowNodeAddress)
+			if (view.Settings.ShowNodeAddress)
 			{
-#if WIN32
-				x = AddText(view, x, y, Program.Settings.AddressColor, HotSpot.AddressId, $"{view.Address.Add(Offset).ToInt32():X08}") + view.Font.Width;
-#else
-				x = AddText(view, x, y, Program.Settings.AddressColor, HotSpot.AddressId, $"{view.Address.Add(Offset).ToInt64():X016}") + view.Font.Width;
-#endif
+				x = AddText(view, x, y, view.Settings.AddressColor, HotSpot.AddressId, view.Address.Add(Offset).ToString(Constants.StringHexFormat)) + view.Font.Width;
 			}
 
 			return x;
@@ -267,7 +271,7 @@ namespace ReClassNET.Nodes
 
 			if (IsSelected)
 			{
-				using (var brush = new SolidBrush(Program.Settings.SelectedColor))
+				using (var brush = new SolidBrush(view.Settings.SelectedColor))
 				{
 					view.Context.FillRectangle(brush, 0, y, view.ClientArea.Right, height);
 				}
@@ -276,7 +280,7 @@ namespace ReClassNET.Nodes
 			AddHotSpot(view, new Rectangle(0, y, view.ClientArea.Right - (IsSelected ? 16 : 0), height), string.Empty, -1, HotSpotType.Select);
 		}
 
-		/// <summary>Draws an icon and adds a <see cref="HotSpot"/> if <paramref name="hitId"/> is not <see cref="HotSpot.NoneId"/>.</summary>
+		/// <summary>Draws an icon and adds a <see cref="HotSpot"/> if <paramref name="id"/> is not <see cref="HotSpot.NoneId"/>.</summary>
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
@@ -374,8 +378,8 @@ namespace ReClassNET.Nodes
 			Contract.Requires(view.Context != null);
 			Contract.Requires(view.Font != null);
 
-			x = AddText(view, x, y, Program.Settings.CommentColor, HotSpot.NoneId, "//");
-			x = AddText(view, x, y, Program.Settings.CommentColor, HotSpot.CommentId, Comment) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.CommentColor, HotSpot.NoneId, "//");
+			x = AddText(view, x, y, view.Settings.CommentColor, HotSpot.CommentId, Comment) + view.Font.Width;
 
 			return x;
 		}
@@ -390,7 +394,7 @@ namespace ReClassNET.Nodes
 			Contract.Requires(view != null);
 			Contract.Requires(view.Context != null);
 
-			using (var brush = new SolidBrush(IsSelected ? Program.Settings.SelectedColor : Program.Settings.HiddenColor))
+			using (var brush = new SolidBrush(IsSelected ? view.Settings.SelectedColor : view.Settings.HiddenColor))
 			{
 				view.Context.FillRectangle(brush, 0, y, view.ClientArea.Right, 1);
 			}

@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Linq;
 using ReClassNET.Memory;
 using ReClassNET.UI;
 using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
-	public abstract class BaseFunctionPtrNode : BaseNode
+	public abstract class BaseFunctionPtrNode : BaseFunctionNode
 	{
-		private IntPtr address = IntPtr.Zero;
-		private readonly List<string> instructions = new List<string>();
-
 		/// <summary>Size of the node in bytes.</summary>
 		public override int MemorySize => IntPtr.Size;
 
@@ -21,7 +18,7 @@ namespace ReClassNET.Nodes
 
 			DisassembleRemoteCode(memory, ptr);
 
-			return string.Join("\n", instructions);
+			return string.Join("\n", instructions.Select(i => i.Instruction));
 		}
 
 		protected int Draw(ViewInfo view, int x, int y, string type, string name)
@@ -47,14 +44,14 @@ namespace ReClassNET.Nodes
 
 			x = AddAddressOffset(view, x, y);
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, name) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, name) + view.Font.Width;
 
 			x = AddOpenClose(view, x, y) + view.Font.Width;
 
 			x = AddComment(view, x, y);
 
-			if (Program.Settings.ShowCommentSymbol)
+			if (view.Settings.ShowCommentSymbol)
 			{
 				var value = view.Memory.ReadObject<IntPtr>(Offset);
 
@@ -62,13 +59,10 @@ namespace ReClassNET.Nodes
 				if (module != null)
 				{
 					var symbols = view.Memory.Process.Symbols.GetSymbolsForModule(module);
-					if (symbols != null)
+					var symbol = symbols?.GetSymbolString(value, module);
+					if (!string.IsNullOrEmpty(symbol))
 					{
-						var symbol = symbols.GetSymbolString(value, module);
-						if (!string.IsNullOrEmpty(symbol))
-						{
-							x = AddText(view, x, y, Program.Settings.OffsetColor, HotSpot.ReadOnlyId, symbol) + view.Font.Width;
-						}
+						AddText(view, x, y, view.Settings.OffsetColor, HotSpot.ReadOnlyId, symbol);
 					}
 				}
 			}
@@ -79,12 +73,7 @@ namespace ReClassNET.Nodes
 
 				DisassembleRemoteCode(view.Memory, ptr);
 
-				foreach (var line in instructions)
-				{
-					y += view.Font.Height;
-
-					AddText(view, tx, y, Program.Settings.NameColor, HotSpot.ReadOnlyId, line);
-				}
+				y = DrawInstructions(view, tx, y);
 			}
 
 			return y + view.Font.Height;
@@ -117,16 +106,8 @@ namespace ReClassNET.Nodes
 
 				if (!address.IsNull() && memory.Process.IsValid)
 				{
-					memory.Process.NativeHelper.DisassembleRemoteCode(
-						memory.Process.Process.Handle,
-						address,
-						200,
-#if WIN64
-						(a, l, i) => instructions.Add($"{a.ToString("X08")} {i}")
-#else
-						(a, l, i) => instructions.Add($"{a.ToString("X04")} {i}")
-#endif
-					);
+					int unused;
+					DisassembleRemoteCode(memory, address, out unused);
 				}
 			}
 		}

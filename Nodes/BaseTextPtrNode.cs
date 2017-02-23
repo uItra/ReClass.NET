@@ -13,8 +13,10 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
+		/// <param name="type">The name of the type.</param>
+		/// <param name="text">The text.</param>
 		/// <returns>The height the node occupies.</returns>
-		public int DrawText(ViewInfo view, int x, int y, string type, int length, string text)
+		public int DrawText(ViewInfo view, int x, int y, string type, string text)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -33,12 +35,12 @@ namespace ReClassNET.Nodes
 			x = AddIcon(view, x, y, Icons.Text, HotSpot.NoneId, HotSpotType.None);
 			x = AddAddressOffset(view, x, y);
 
-			x = AddText(view, x, y, Program.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
-			x = AddText(view, x, y, Program.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, type) + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
 
-			x = AddText(view, x, y, Program.Settings.TextColor, HotSpot.NoneId, "= '");
-			x = AddText(view, x, y, Program.Settings.TextColor, HotSpot.NoneId, text);
-			x = AddText(view, x, y, Program.Settings.TextColor, HotSpot.NoneId, "'") + view.Font.Width;
+			x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, "= '");
+			x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, text);
+			x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, "'") + view.Font.Width;
 
 			AddComment(view, x, y);
 

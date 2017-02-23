@@ -117,8 +117,7 @@ namespace ReClassNET
 		[XmlElement(Type = typeof(XmlColorWrapper))]
 		public Color CustomColor { get; set; } = Color.FromArgb(64, 128, 64);
 
-		private static Color[] highlightColors = new Color[]
-		{
+		private static readonly Color[] highlightColors = {
 			Color.Aqua, Color.Aquamarine, Color.Blue, Color.BlueViolet, Color.Chartreuse, Color.Crimson, Color.LawnGreen, Color.Magenta
 		};
 		[XmlIgnore]
@@ -159,6 +158,8 @@ namespace ReClassNET
 		public string TypeUTF32PtrText { get; set; } = "char32_t*";
 
 		public string TypeFunctionPtr { get; set; } = "void*";
+
+		public Settings Clone() => MemberwiseClone() as Settings;
 	}
 
 	public class XmlColorWrapper : IXmlSerializable

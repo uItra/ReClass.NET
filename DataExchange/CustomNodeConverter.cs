@@ -30,7 +30,7 @@ namespace ReClassNET.DataExchange
 		/// <returns>True if a node was created, otherwise false.</returns>
 		bool TryCreateNodeFromElement(XElement element, ClassNode parent, IEnumerable<ClassNode> classes, ILogger logger, out BaseNode node);
 
-		/// <summary>Creates a xml element from the node. This method gets only called if <see cref="CanHandleNode(BaseNode node)"/> returned true.</summary>
+		/// <summary>Creates a xml element from the node. This method gets only called if <see cref="CanHandleNode(BaseNode)"/> returned true.</summary>
 		/// <param name="node">The node to create the xml element from.</param>
 		/// <param name="logger">The logger used to output messages.</param>
 		/// <returns>The xml element for the node.</returns>
@@ -99,14 +99,14 @@ namespace ReClassNET.DataExchange
 		{
 			Contract.Requires(element != null);
 
-			return converters.Where(c => c.CanHandleElement(element)).FirstOrDefault();
+			return converters.FirstOrDefault(c => c.CanHandleElement(element));
 		}
 
 		public static ICustomNodeConverter GetWriteConverter(BaseNode node)
 		{
 			Contract.Requires(node != null);
 
-			return converters.Where(c => c.CanHandleNode(node)).FirstOrDefault();
+			return converters.FirstOrDefault(c => c.CanHandleNode(node));
 		}
 	}
 }

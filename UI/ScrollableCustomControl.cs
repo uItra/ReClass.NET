@@ -120,10 +120,10 @@ namespace ReClassNET.UI
 			switch (type)
 			{
 				case ScrollEventType.SmallDecrement:
-					newValue = oldValue - scrollProperties.SmallChange;
+					newValue = oldValue - (ModifierKeys == Keys.Control ? 1 : scrollProperties.SmallChange);
 					break;
 				case ScrollEventType.SmallIncrement:
-					newValue = oldValue + scrollProperties.SmallChange;
+					newValue = oldValue + (ModifierKeys == Keys.Control ? 1 : scrollProperties.SmallChange);
 					break;
 				case ScrollEventType.LargeDecrement:
 					newValue = oldValue - scrollProperties.LargeChange;
@@ -140,6 +140,22 @@ namespace ReClassNET.UI
 			}
 
 			SetValue(type, scrollProperties, newValue);
+		}
+
+		public void DoScroll(ScrollOrientation orientation, int amount)
+		{
+			if (orientation == ScrollOrientation.VerticalScroll && VerticalScroll.Enabled == false)
+			{
+				return;
+			}
+			if (orientation == ScrollOrientation.HorizontalScroll && HorizontalScroll.Enabled == false)
+			{
+				return;
+			}
+
+			var scrollProperties = orientation == ScrollOrientation.VerticalScroll ? (ScrollProperties)VerticalScroll : (ScrollProperties)HorizontalScroll;
+
+			SetValue(ScrollEventType.ThumbPosition, scrollProperties, scrollProperties.Value + amount);
 		}
 
 		private void ProcessMessage(ref Message msg, ScrollProperties scrollProperties)
