@@ -11,6 +11,8 @@ namespace ReClassNET.Memory
 		public RemoteProcess Process { get; set; }
 
 		private byte[] data;
+		private byte[] historyData;
+		private bool hasHistory;
 
 		public int Size
 		{
@@ -23,6 +25,9 @@ namespace ReClassNET.Memory
 				if (value != data.Length)
 				{
 					data = new byte[value];
+					historyData = new byte[value];
+
+					hasHistory = false;
 				}
 			}
 		}
@@ -33,21 +38,27 @@ namespace ReClassNET.Memory
 		private void ObjectInvariants()
 		{
 			Contract.Invariant(data != null);
+			Contract.Invariant(historyData != null);
 		}
 
 		public MemoryBuffer()
 		{
 			Contract.Ensures(data != null);
+			Contract.Ensures(historyData != null);
 
 			data = new byte[0];
+			historyData = new byte[0];
 		}
 
 		public MemoryBuffer(MemoryBuffer other)
 		{
 			Contract.Requires(other != null);
 			Contract.Ensures(data != null);
+			Contract.Ensures(historyData != null);
 
 			data = other.data;
+			historyData = other.historyData;
+			hasHistory = other.hasHistory;
 		}
 
 		public MemoryBuffer Clone()
@@ -63,7 +74,19 @@ namespace ReClassNET.Memory
 
 		public void Update(IntPtr address)
 		{
+			Update(address, true);
+		}
+
+		public void Update(IntPtr address, bool setHistory)
+		{
 			Contract.Requires(Process != null);
+
+			if (setHistory)
+			{
+				Array.Copy(data, historyData, data.Length);
+
+				hasHistory = true;
+			}
 
 			Process.ReadRemoteMemoryIntoBuffer(address, ref data);
 		}
@@ -92,15 +115,31 @@ namespace ReClassNET.Memory
 			Contract.Requires(offset >= 0);
 			Contract.Requires(length >= 0);
 
-			var bytes = new byte[length];
+			var buffer = new byte[length];
 
-			if (Offset + offset + length > data.Length)
+			ReadBytes(offset, buffer);
+
+			return buffer;
+		}
+
+		public void ReadBytes(IntPtr offset, byte[] buffer)
+		{
+			Contract.Requires(buffer != null);
+
+			ReadBytes(offset.ToInt32(), buffer);
+		}
+
+		public void ReadBytes(int offset, byte[] buffer)
+		{
+			Contract.Requires(offset >= 0);
+			Contract.Requires(buffer != null);
+
+			if (Offset + offset + buffer.Length > data.Length)
 			{
-				return bytes;
+				return;
 			}
 
-			Array.Copy(data, Offset + offset, bytes, 0, length);
-			return bytes;
+			Array.Copy(data, Offset + offset, buffer, 0, buffer.Length);
 		}
 
 		public T ReadObject<T>(IntPtr offset) where T : struct
@@ -212,6 +251,36 @@ namespace ReClassNET.Memory
 			Contract.Ensures(Contract.Result<string>() != null);
 
 			return ReadString(Encoding.UTF32, offset.ToInt32(), length);
+		}
+
+		public bool HasChanged(IntPtr offset, int length)
+		{
+			return HasChanged(offset.ToInt32(), length);
+		}
+
+		public bool HasChanged(int offset, int length)
+		{
+			if (hasHistory)
+			{
+				return false;
+			}
+
+			if (Offset + offset + length > data.Length)
+			{
+				return false;
+			}
+
+			var end = Offset + offset + length;
+
+			for (var i = Offset + offset; i < end; ++i)
+			{
+				if (data[i] != historyData[i])
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 	}
 }

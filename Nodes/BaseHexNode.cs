@@ -1,17 +1,20 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Globalization;
 using ReClassNET.UI;
+using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
 	public abstract class BaseHexNode : BaseNode
 	{
-		private readonly byte[] buffer;
-		private DateTime highlightUntil;
-
 		public static DateTime CurrentHighlightTime;
 		public static readonly TimeSpan HightlightDuration = TimeSpan.FromSeconds(1);
+
+		private static readonly Dictionary<IntPtr, ValueTypeWrapper<DateTime>> HighlightTimer = new Dictionary<IntPtr, ValueTypeWrapper<DateTime>>();
+
+		private readonly byte[] buffer;
 
 		protected BaseHexNode()
 		{
@@ -42,24 +45,39 @@ namespace ReClassNET.Nodes
 				x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, text);
 			}
 
-			var color = view.Settings.HighlightChangedValues && highlightUntil > CurrentHighlightTime ? view.Settings.HighlightColor : view.Settings.HexColor;
-			var changed = false;
-			for (var i = 0; i < length; ++i)
+			view.Memory.ReadBytes(Offset, buffer);
+
+			var color = view.Settings.HexColor;
+			if (view.Settings.HighlightChangedValues)
 			{
-				var b = view.Memory.ReadByte(Offset + i);
-				if (buffer[i] != b)
+				var address = view.Address.Add(Offset);
+
+				HighlightTimer.RemoveWhere(kv => kv.Value.Value < CurrentHighlightTime);
+
+				ValueTypeWrapper<DateTime> until;
+				if (HighlightTimer.TryGetValue(address, out until))
 				{
-					changed = true;
+					if (until.Value >= CurrentHighlightTime)
+					{
+						color = view.Settings.HighlightColor;
 
-					buffer[i] = b;
+						if (view.Memory.HasChanged(Offset, MemorySize))
+						{
+							until.Value = CurrentHighlightTime.Add(HightlightDuration);
+						}
+					}
 				}
+				else if (view.Memory.HasChanged(Offset, MemorySize))
+				{
+					HighlightTimer.Add(address, CurrentHighlightTime.Add(HightlightDuration));
 
-				x = AddText(view, x, y, color, i, $"{b:X02}") + view.Font.Width;
+					color = view.Settings.HighlightColor;
+				}
 			}
 
-			if (changed)
+			for (var i = 0; i < length; ++i)
 			{
-				highlightUntil = CurrentHighlightTime.Add(HightlightDuration);
+				x = AddText(view, x, y, color, i, $"{buffer[i]:X02}") + view.Font.Width;
 			}
 
 			AddComment(view, x, y);
