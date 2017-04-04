@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Drawing;
 using System.Linq;
 using ReClassNET.Memory;
 using ReClassNET.UI;
@@ -24,7 +25,7 @@ namespace ReClassNET.Nodes
 			return string.Join("\n", instructions.Select(i => i.Instruction));
 		}
 
-		public override int Draw(ViewInfo view, int x, int y)
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			Contract.Requires(view != null);
 
@@ -33,9 +34,9 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding;
 
@@ -50,42 +51,52 @@ namespace ReClassNET.Nodes
 
 			x = AddOpenClose(view, x, y) + view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
+
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			var size = new Size(x - origX, view.Font.Height);
 
 			var ptr = view.Address.Add(Offset);
-
 			DisassembleRemoteCode(view.Memory, ptr);
 
 			if (levelsOpen[view.Level])
 			{
 				y += view.Font.Height;
 				x = AddText(view, tx, y, view.Settings.TypeColor, HotSpot.NoneId, "Signature:") + view.Font.Width;
-				AddText(view, x, y, view.Settings.ValueColor, 0, Signature);
+				x = AddText(view, x, y, view.Settings.ValueColor, 0, Signature);
+				size.Width = Math.Max(size.Width, x - origX);
+				size.Height += view.Font.Height;
 
 				y += view.Font.Height;
 				x = AddText(view, tx, y, view.Settings.TextColor, HotSpot.NoneId, "Belongs to: ");
 				x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, BelongsToClass == null ? "<None>" : $"<{BelongsToClass.Name}>");
-				AddIcon(view, x, y, Icons.Change, 1, HotSpotType.ChangeType);
+				x = AddIcon(view, x, y, Icons.Change, 1, HotSpotType.ChangeType);
+				size.Width = Math.Max(size.Width, x - origX);
+				size.Height += view.Font.Height;
 
-				y = DrawInstructions(view, tx, y + 4) + 4;
+				var instructionSize = DrawInstructions(view, tx, y + 4);
+				size.Width = Math.Max(size.Width, instructionSize.Width + tx - origX);
+				size.Height += instructionSize.Height + 4;
 			}
 
-			return y + view.Font.Height;
+			return size;
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += instructions.Count * view.Font.Height;
+				height += instructions.Count * view.Font.Height;
 			}
-			return h;
+			return height;
 		}
 
 		public override void Update(HotSpot spot)

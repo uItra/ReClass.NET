@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.Contracts;
+using System.Drawing;
 using ReClassNET.UI;
+using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
@@ -10,9 +12,9 @@ namespace ReClassNET.Nodes
 			levelsOpen.DefaultValue = true;
 		}
 
-		protected delegate void DrawMatrixValues(int x, ref int y);
+		protected delegate void DrawMatrixValues(int x, ref int maxX, ref int y);
 
-		protected int DrawMatrixType(ViewInfo view, int x, int y, string type, DrawMatrixValues drawValues)
+		protected Size DrawMatrixType(ViewInfo view, int x, int y, string type, DrawMatrixValues drawValues)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -23,9 +25,10 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+			var origY = y;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding;
 
@@ -41,18 +44,21 @@ namespace ReClassNET.Nodes
 
 			x += view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
 			if (levelsOpen[view.Level])
 			{
-				drawValues(tx, ref y);
+				drawValues(tx, ref x, ref y);
 			}
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, y - origY + view.Font.Height);
 		}
 
 		protected delegate void DrawVectorValues(ref int x, ref int y);
-		protected int DrawVectorType(ViewInfo view, int x, int y, string type, DrawVectorValues drawValues)
+		protected Size DrawVectorType(ViewInfo view, int x, int y, string type, DrawVectorValues drawValues)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -63,9 +69,10 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+			var origY = y;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding;
 
@@ -83,24 +90,27 @@ namespace ReClassNET.Nodes
 
 			x += view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, y - origY + view.Font.Height);
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += CalculateValuesHeight(view);
+				height += CalculateValuesHeight(view);
 			}
-			return h;
+			return height;
 		}
 
 		protected abstract int CalculateValuesHeight(ViewInfo view);

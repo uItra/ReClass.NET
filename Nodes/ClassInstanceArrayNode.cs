@@ -1,4 +1,5 @@
-﻿using ReClassNET.UI;
+﻿using System.Drawing;
+using ReClassNET.UI;
 using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
@@ -20,13 +21,13 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The height the node occupies.</returns>
-		public override int Draw(ViewInfo view, int x, int y)
+		/// <returns>The pixel size the node occupies.</returns>
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			return Draw(view, x, y, "Array", HotSpotType.ChangeType);
 		}
 
-		protected override int DrawChild(ViewInfo view, int x, int y)
+		protected override Size DrawChild(ViewInfo view, int x, int y)
 		{
 			var v = view.Clone();
 			v.Address = view.Address.Add(Offset) + InnerNode.MemorySize * CurrentIndex;
@@ -34,11 +35,6 @@ namespace ReClassNET.Nodes
 			v.Memory.Offset = Offset.ToInt32() + InnerNode.MemorySize * CurrentIndex;
 
 			return InnerNode.Draw(v, x, y);
-		}
-
-		protected override int CalculateChildHeight(ViewInfo view)
-		{
-			return InnerNode.CalculateHeight(view);
 		}
 	}
 }

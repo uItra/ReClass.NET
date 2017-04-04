@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Drawing;
 using ReClassNET.UI;
 
 namespace ReClassNET.Nodes
@@ -15,8 +16,8 @@ namespace ReClassNET.Nodes
 		/// <param name="y">The y coordinate.</param>
 		/// <param name="type">The name of the type.</param>
 		/// <param name="text">The text.</param>
-		/// <returns>The height the node occupies.</returns>
-		public int DrawText(ViewInfo view, int x, int y, string type, string text)
+		/// <returns>The pixel size the node occupies.</returns>
+		public Size DrawText(ViewInfo view, int x, int y, string type, string text)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -27,9 +28,9 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding;
 			x = AddIcon(view, x, y, Icons.Text, HotSpot.NoneId, HotSpotType.None);
@@ -42,12 +43,15 @@ namespace ReClassNET.Nodes
 			x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, text);
 			x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, "'") + view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, view.Font.Height);
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			return IsHidden ? HiddenHeight : view.Font.Height;
 		}

@@ -20,7 +20,7 @@ namespace ReClassNET.Nodes
 		internal static readonly List<INodeInfoReader> NodeInfoReader = new List<INodeInfoReader>();
 
 		protected static readonly int TextPadding = Icons.Dimensions;
-		protected const int HiddenHeight = 1;
+		protected static readonly int HiddenHeight = 1;
 
 		private static int NodeIndex = 0;
 
@@ -123,17 +123,17 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The height the node occupies.</returns>
-		public abstract int Draw(ViewInfo view, int x, int y);
+		/// <returns>The pixel size the node occupies.</returns>
+		public abstract Size Draw(ViewInfo view, int x, int y);
 
 		/// <summary>
 		/// Calculates the height of the node if drawn.
 		/// This method is used to determine if a node outside the visible area should be drawn.
-		/// The returned height must be equal to the height which gets added by the <see cref="Draw(ViewInfo, int, int)"/> method.
+		/// The returned height must be equal to the height which is returned by the <see cref="Draw(ViewInfo, int, int)"/> method.
 		/// </summary>
 		/// <param name="view">The view information.</param>
 		/// <returns>The calculated height.</returns>
-		public abstract int CalculateHeight(ViewInfo view);
+		public abstract int CalculateDrawnHeight(ViewInfo view);
 
 		/// <summary>Updates the node from the given <paramref name="spot"/>. Sets the <see cref="Name"/> and <see cref="Comment"/> of the node.</summary>
 		/// <param name="spot">The spot.</param>
@@ -221,10 +221,11 @@ namespace ReClassNET.Nodes
 					AddHotSpot(view, rect, text, hitId, HotSpotType.Edit);
 				}
 
-				using (var brush = new SolidBrush(color))
+				view.Context.DrawStringEx(text, view.Font.Font, color, x, y);
+				/*using (var brush = new SolidBrush(color))
 				{
 					view.Context.DrawString(text, view.Font.Font, brush, x, y);
-				}
+				}*/
 			}
 
 			return x + width;
@@ -327,11 +328,29 @@ namespace ReClassNET.Nodes
 			return AddIcon(view, x, y, levelsOpen[view.Level] ? Icons.OpenCloseOpen : Icons.OpenCloseClosed, 0, HotSpotType.OpenClose);
 		}
 
+		/// <summary>Draws a type drop icon if the node is selected.</summary>
+		/// <param name="view">The view information.</param>
+		/// <param name="y">The y coordinate.</param>
+		protected void AddTypeDrop(ViewInfo view, int y)
+		{
+			Contract.Requires(view != null);
+			Contract.Requires(view.Context != null);
+
+			if (view.MultipleNodesSelected || (y > view.ClientArea.Bottom || y + Icons.Dimensions < 0))
+			{
+				return;
+			}
+
+			if (IsSelected)
+			{
+				AddIcon(view, 0, y, Icons.DropArrow, 0, HotSpotType.Drop);
+			}
+		}
+
 		/// <summary>Draws a delete icon if the node is selected.</summary>
 		/// <param name="view">The view information.</param>
-		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		protected void AddDelete(ViewInfo view, int x, int y)
+		protected void AddDelete(ViewInfo view, int y)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(view.Context != null);
@@ -344,26 +363,6 @@ namespace ReClassNET.Nodes
 			if (IsSelected)
 			{
 				AddIcon(view, view.ClientArea.Right - Icons.Dimensions, y, Icons.Delete, 0, HotSpotType.Delete);
-			}
-		}
-
-		/// <summary>Draws a type drop icon if the node is selected.</summary>
-		/// <param name="view">The view information.</param>
-		/// <param name="x">The x coordinate.</param>
-		/// <param name="y">The y coordinate.</param>
-		protected void AddTypeDrop(ViewInfo view, int x, int y)
-		{
-			Contract.Requires(view != null);
-			Contract.Requires(view.Context != null);
-
-			if (view.MultiSelected || (y > view.ClientArea.Bottom || y + Icons.Dimensions < 0))
-			{
-				return;
-			}
-
-			if (IsSelected)
-			{
-				AddIcon(view, 0, y, Icons.DropArrow, 0, HotSpotType.Drop);
 			}
 		}
 
@@ -388,8 +387,8 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The new y coordinate after drawing the line.</returns>
-		protected int DrawHidden(ViewInfo view, int x, int y)
+		/// <returns>The size of the drawing.</returns>
+		protected Size DrawHidden(ViewInfo view, int x, int y)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(view.Context != null);
@@ -399,7 +398,7 @@ namespace ReClassNET.Nodes
 				view.Context.FillRectangle(brush, 0, y, view.ClientArea.Right, 1);
 			}
 
-			return y + HiddenHeight;
+			return new Size(0, HiddenHeight);
 		}
 	}
 
@@ -416,14 +415,14 @@ namespace ReClassNET.Nodes
 			}
 		}
 
-		public override int Draw(ViewInfo view, int x, int y)
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			Contract.Requires(view != null);
 
 			throw new NotImplementedException();
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			Contract.Requires(view != null);
 

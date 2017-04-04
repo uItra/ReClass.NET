@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Drawing;
 using System.Linq;
 using ReClassNET.Memory;
 using ReClassNET.UI;
@@ -21,7 +22,7 @@ namespace ReClassNET.Nodes
 			return string.Join("\n", instructions.Select(i => i.Instruction));
 		}
 
-		protected int Draw(ViewInfo view, int x, int y, string type, string name)
+		protected Size Draw(ViewInfo view, int x, int y, string type, string name)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -32,9 +33,9 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding;
 
@@ -62,10 +63,12 @@ namespace ReClassNET.Nodes
 					var symbol = symbols?.GetSymbolString(value, module);
 					if (!string.IsNullOrEmpty(symbol))
 					{
-						AddText(view, x, y, view.Settings.OffsetColor, HotSpot.ReadOnlyId, symbol);
+						x = AddText(view, x, y, view.Settings.OffsetColor, HotSpot.ReadOnlyId, symbol);
 					}
 				}
 			}
+
+			var size = new Size(x - origX, view.Font.Height);
 
 			if (levelsOpen[view.Level])
 			{
@@ -73,25 +76,31 @@ namespace ReClassNET.Nodes
 
 				DisassembleRemoteCode(view.Memory, ptr);
 
-				y = DrawInstructions(view, tx, y);
+				var instructionSize = DrawInstructions(view, tx, y);
+
+				size.Width = Math.Max(size.Width, instructionSize.Width + tx - origX);
+				size.Height += instructionSize.Height;
 			}
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return size;
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += instructions.Count * view.Font.Height;
+				height += instructions.Count * view.Font.Height;
 			}
-			return h;
+			return height;
 		}
 
 		private void DisassembleRemoteCode(MemoryBuffer memory, IntPtr address)

@@ -93,19 +93,20 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The height the node occupies.</returns>
-		public override int Draw(ViewInfo view, int x, int y)
+		/// <returns>The pixel size the node occupies.</returns>
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			if (IsHidden)
 			{
 				return DrawHidden(view, x, y);
 			}
 
-			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
+			var origX = x;
+			var origY = y;
 
-			x += TextPadding + 16;
+			AddSelection(view, x, y, view.Font.Height);
+
+			x += TextPadding + Icons.Dimensions;
 
 			x = AddAddressOffset(view, x, y);
 
@@ -125,7 +126,7 @@ namespace ReClassNET.Nodes
 
 			x += view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
 			if (levelsOpen[view.Level])
 			{
@@ -146,22 +147,25 @@ namespace ReClassNET.Nodes
 				y += 2;
 			}
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, y - origY + view.Font.Height);
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += view.Font.Height + 2;
+				height += view.Font.Height + 2;
 			}
-			return h;
+			return height;
 		}
 
 		/// <summary>Updates the node from the given spot. Sets the value of the selected bit.</summary>

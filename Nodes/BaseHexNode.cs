@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.Drawing;
 using System.Globalization;
 using ReClassNET.UI;
 using ReClassNET.Util;
@@ -23,24 +24,23 @@ namespace ReClassNET.Nodes
 			buffer = new byte[MemorySize];
 		}
 
-		protected int Draw(ViewInfo view, int x, int y, string text, int length)
+		protected Size Draw(ViewInfo view, int x, int y, string text, int length)
 		{
 			Contract.Requires(view != null);
-			Contract.Requires(text != null);
 
 			if (IsHidden)
 			{
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x += TextPadding + 16;
 			x = AddAddressOffset(view, x, y);
 
-			if (view.Settings.ShowNodeText)
+			if (!string.IsNullOrEmpty(text))
 			{
 				x = AddText(view, x, y, view.Settings.TextColor, HotSpot.NoneId, text);
 			}
@@ -80,12 +80,15 @@ namespace ReClassNET.Nodes
 				x = AddText(view, x, y, color, i, $"{buffer[i]:X02}") + view.Font.Width;
 			}
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, view.Font.Height);
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			return IsHidden ? HiddenHeight : view.Font.Height;
 		}

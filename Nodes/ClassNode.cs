@@ -6,6 +6,7 @@ using System.Linq;
 using ReClassNET.AddressParser;
 using ReClassNET.Memory;
 using ReClassNET.UI;
+using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
@@ -90,10 +91,14 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The height the node occupies.</returns>
-		public override int Draw(ViewInfo view, int x, int y)
+		/// <returns>The pixel size the node occupies.</returns>
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			AddSelection(view, 0, y, view.Font.Height);
+
+			var origX = x;
+			var origY = y;
+
 			x = AddOpenClose(view, x, y);
 
 			var tx = x;
@@ -104,59 +109,73 @@ namespace ReClassNET.Nodes
 			x = AddText(view, x, y, view.Settings.TypeColor, HotSpot.NoneId, "Class") + view.Font.Width;
 			x = AddText(view, x, y, view.Settings.NameColor, HotSpot.NameId, Name) + view.Font.Width;
 			x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, $"[{MemorySize}]") + view.Font.Width;
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
 			y += view.Font.Height;
 
+			var size = new Size(x - origX, y - origY);
+
 			if (levelsOpen[view.Level])
 			{
+				var childOffset = tx - origX;
+
 				var nv = view.Clone();
 				nv.Level++;
 				foreach (var node in Nodes)
 				{
-					// If the node is in the visible area draw it.
+					// Draw the node if it is in the visible area.
 					if (view.ClientArea.Contains(tx, y))
 					{
-						y = node.Draw(nv, tx, y);
+						var innerSize = node.Draw(nv, tx, y);
+
+						size = Utils.AggregateNodeSizes(size, innerSize.Extend(childOffset, 0));
+
+						y += innerSize.Height;
 					}
 					else
 					{
 						// Otherwise calculate the height...
-						var height = node.CalculateHeight(nv);
+						var calculatedHeight = node.CalculateDrawnHeight(nv);
 
-						// and check if the nodes area overlaps with the visible area...
-						if (new Rectangle(tx, y, view.ClientArea.Width, height).IntersectsWith(view.ClientArea))
+						// and check if the node area overlaps with the visible area...
+						if (new Rectangle(tx, y, 9999999, calculatedHeight).IntersectsWith(view.ClientArea))
 						{
 							// then draw the node...
-							y = node.Draw(nv, tx, y);
+							var innerSize = node.Draw(nv, tx, y);
+
+							size = Utils.AggregateNodeSizes(size, innerSize.Extend(childOffset, 0));
+
+							y += innerSize.Height;
 						}
 						else
 						{
-							// or skip drawing and just add the height.
-							y += height;
+							// or skip drawing and just use the calculated height.
+							size = Utils.AggregateNodeSizes(size, new Size(0, calculatedHeight));
+
+							y += calculatedHeight;
 						}
 					}
 				}
 			}
 
-			return y;
+			return size;
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
 				var nv = view.Clone();
 				nv.Level++;
-				h += Nodes.Sum(n => n.CalculateHeight(nv));
+				height += Nodes.Sum(n => n.CalculateDrawnHeight(nv));
 			}
-			return h;
+			return height;
 		}
 
 		public override void Update(HotSpot spot)

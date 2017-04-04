@@ -1,4 +1,5 @@
-﻿using ReClassNET.UI;
+﻿using System.Drawing;
+using ReClassNET.UI;
 
 namespace ReClassNET.Nodes
 {
@@ -11,19 +12,19 @@ namespace ReClassNET.Nodes
 		/// <param name="view">The view information.</param>
 		/// <param name="x">The x coordinate.</param>
 		/// <param name="y">The y coordinate.</param>
-		/// <returns>The height th node occupies.</returns>
-		public override int Draw(ViewInfo view, int x, int y)
+		/// <returns>The pixel size the node occupies.</returns>
+		public override Size Draw(ViewInfo view, int x, int y)
 		{
 			if (IsHidden)
 			{
 				return DrawHidden(view, x, y);
 			}
 
-			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
+			var origX = x;
 
-			x = x + TextPadding + 16;
+			AddSelection(view, x, y, view.Font.Height);
+
+			x += TextPadding + Icons.Dimensions;
 
 			x = AddAddressOffset(view, x, y);
 
@@ -34,12 +35,15 @@ namespace ReClassNET.Nodes
 			var value = view.Memory.ReadByte(Offset);
 			x = AddText(view, x, y, view.Settings.ValueColor, 0, value == 0 ? "false" : "true") + view.Font.Width;
 
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
-			return y + view.Font.Height;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return new Size(x - origX, view.Font.Height);
 		}
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			return IsHidden ? HiddenHeight : view.Font.Height;
 		}

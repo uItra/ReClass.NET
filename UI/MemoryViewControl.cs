@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Drawing;
 using System.Linq;
@@ -95,8 +96,9 @@ namespace ReClassNET.UI
 			VerticalScroll.Enabled = true;
 			VerticalScroll.Visible = true;
 			VerticalScroll.SmallChange = 10;
-			HorizontalScroll.Enabled = false;
-			HorizontalScroll.Visible = false;
+			HorizontalScroll.Enabled = true;
+			HorizontalScroll.Visible = true;
+			HorizontalScroll.SmallChange = 100;
 		}
 
 		internal void RegisterNodeType(Type type, string name, Image icon)
@@ -156,6 +158,8 @@ namespace ReClassNET.UI
 			Memory.Size = ClassNode.MemorySize;
 			Memory.Update(ClassNode.Offset);
 
+			BaseHexNode.CurrentHighlightTime = DateTime.Now;
+
 			var view = new ViewInfo
 			{
 				Settings = Program.Settings,
@@ -165,40 +169,55 @@ namespace ReClassNET.UI
 				ClientArea = ClientRectangle,
 				Level = 0,
 				Memory = Memory,
-				MultiSelected = selectedNodes.Count > 1,
+				MultipleNodesSelected = selectedNodes.Count > 1,
 				HotSpots = hotSpots
 			};
 
-			var scrollY = VerticalScroll.Value * font.Height;
-			int maxY;
 			try
 			{
-				BaseHexNode.CurrentHighlightTime = DateTime.Now;
+				var drawnSize = ClassNode.Draw(
+					view,
+					-HorizontalScroll.Value,
+					-VerticalScroll.Value * font.Height
+				);
+				drawnSize.Width += 50;
 
-				maxY = ClassNode.Draw(view, 0, -scrollY) + scrollY;
+				/*foreach (var spot in hotSpots.Where(h => h.Type == HotSpotType.Select))
+				{
+					e.Graphics.DrawRectangle(new Pen(new SolidBrush(Color.FromArgb(150, 255, 0, 0)), 1), spot.Rect);
+				}*/
+
+				if (drawnSize.Height > ClientSize.Height)
+				{
+					VerticalScroll.Enabled = true;
+
+					VerticalScroll.LargeChange = ClientSize.Height / font.Height;
+					VerticalScroll.Maximum = (drawnSize.Height - ClientSize.Height) / font.Height + VerticalScroll.LargeChange;
+				}
+				else
+				{
+					VerticalScroll.Enabled = false;
+
+					VerticalScroll.Value = 0;
+				}
+
+				if (drawnSize.Width > ClientSize.Width)
+				{
+					HorizontalScroll.Enabled = true;
+
+					HorizontalScroll.LargeChange = ClientSize.Width;
+					HorizontalScroll.Maximum = (drawnSize.Width - ClientSize.Width) + HorizontalScroll.LargeChange;
+				}
+				else
+				{
+					HorizontalScroll.Enabled = false;
+
+					HorizontalScroll.Value = 0;
+				}
 			}
-			catch
+			catch (Exception ex)
 			{
-				return;
-			}
-
-			/*foreach (var spot in hotSpots.Where(h => h.Type == HotSpotType.Select))
-			{
-				e.Graphics.DrawRectangle(new Pen(new SolidBrush(Color.FromArgb(150, 255, 0, 0)), 1), spot.Rect);
-			}*/
-
-			if (maxY > ClientSize.Height)
-			{
-				VerticalScroll.Enabled = true;
-
-				VerticalScroll.LargeChange = ClientSize.Height / font.Height;
-				VerticalScroll.Maximum = (maxY - ClientSize.Height) / font.Height + VerticalScroll.LargeChange;
-			}
-			else
-			{
-				VerticalScroll.Enabled = false;
-
-				VerticalScroll.Value = 0;
+				Debug.Assert(false);
 			}
 		}
 
@@ -676,6 +695,13 @@ namespace ReClassNET.UI
 		#endregion
 
 		#region Event Handler
+
+		protected override void OnSizeChanged(EventArgs e)
+		{
+			base.OnSizeChanged(e);
+
+			Invalidate();
+		}
 
 		private void repaintTimer_Tick(object sender, EventArgs e)
 		{

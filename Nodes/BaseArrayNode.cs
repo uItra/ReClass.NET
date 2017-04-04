@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics.Contracts;
+using System.Drawing;
 using ReClassNET.UI;
+using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
@@ -10,7 +12,7 @@ namespace ReClassNET.Nodes
 		public int CurrentIndex { get; set; }
 		public int Count { get; set; } = 1;
 
-		protected int Draw(ViewInfo view, int x, int y, string type, HotSpotType exchange)
+		protected Size Draw(ViewInfo view, int x, int y, string type, HotSpotType exchange)
 		{
 			Contract.Requires(view != null);
 			Contract.Requires(type != null);
@@ -20,9 +22,10 @@ namespace ReClassNET.Nodes
 				return DrawHidden(view, x, y);
 			}
 
+			var origX = x;
+			var origY = y;
+
 			AddSelection(view, x, y, view.Font.Height);
-			AddDelete(view, x, y);
-			AddTypeDrop(view, x, y);
 
 			x = AddOpenClose(view, x, y);
 			x = AddIcon(view, x, y, Icons.Array, -1, HotSpotType.None);
@@ -40,42 +43,48 @@ namespace ReClassNET.Nodes
 			x = AddText(view, x, y, view.Settings.IndexColor, HotSpot.NoneId, "(");
 			x = AddText(view, x, y, view.Settings.IndexColor, 1, CurrentIndex.ToString());
 			x = AddText(view, x, y, view.Settings.IndexColor, HotSpot.NoneId, ")");
-			x = AddIcon(view, x, y, Icons.RightArrow, 3, HotSpotType.Click);
+			x = AddIcon(view, x, y, Icons.RightArrow, 3, HotSpotType.Click) + view.Font.Width;
 
-			x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, $"<{InnerNode.Name} Size={MemorySize}>");
+			x = AddText(view, x, y, view.Settings.ValueColor, HotSpot.NoneId, $"<{InnerNode.Name} Size={MemorySize}>") + view.Font.Width;
 			x = AddIcon(view, x + 2, y, Icons.Change, 4, exchange);
 
 			x += view.Font.Width;
-			AddComment(view, x, y);
+			x = AddComment(view, x, y);
 
 			y += view.Font.Height;
 
+			var size = new Size(x - origX, y - origY);
+
 			if (levelsOpen[view.Level])
 			{
-				y = DrawChild(view, tx, y);
+				var childSize = DrawChild(view, tx, y);
+
+				size.Width = Math.Max(size.Width, childSize.Width + tx - origX);
+				size.Height += childSize.Height;
 			}
 
-			return y;
+			AddTypeDrop(view, y);
+			AddDelete(view, y);
+
+			return size;
 		}
 
-		protected abstract int DrawChild(ViewInfo view, int x, int y);
+		protected abstract Size DrawChild(ViewInfo view, int x, int y);
 
-		public override int CalculateHeight(ViewInfo view)
+		public override int CalculateDrawnHeight(ViewInfo view)
 		{
 			if (IsHidden)
 			{
 				return HiddenHeight;
 			}
 
-			var h = view.Font.Height;
+			var height = view.Font.Height;
 			if (levelsOpen[view.Level])
 			{
-				h += CalculateChildHeight(view);
+				height += InnerNode.CalculateDrawnHeight(view);
 			}
-			return h;
+			return height;
 		}
-
-		protected abstract int CalculateChildHeight(ViewInfo view);
 
 		public override void Update(HotSpot spot)
 		{
@@ -124,7 +133,7 @@ namespace ReClassNET.Nodes
 	[ContractClassFor(typeof(BaseArrayNode))]
 	internal abstract class BaseArrayNodeContract : BaseArrayNode
 	{
-		protected override int DrawChild(ViewInfo view, int x, int y)
+		protected override Size DrawChild(ViewInfo view, int x, int y)
 		{
 			Contract.Requires(view != null);
 
