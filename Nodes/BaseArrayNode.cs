@@ -2,7 +2,6 @@
 using System.Diagnostics.Contracts;
 using System.Drawing;
 using ReClassNET.UI;
-using ReClassNET.Util;
 
 namespace ReClassNET.Nodes
 {
@@ -21,6 +20,8 @@ namespace ReClassNET.Nodes
 			{
 				return DrawHidden(view, x, y);
 			}
+
+			DrawInvalidMemoryIndicator(view, y);
 
 			var origX = x;
 			var origY = y;
