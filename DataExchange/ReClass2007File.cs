@@ -15,8 +15,7 @@ namespace ReClassNET.DataExchange
 		public const string FormatName = "ReClass 2007 File";
 		public const string FileExtension = ".rdc";
 
-		private static readonly Type[] TypeMap = new Type[]
-		{
+		private static readonly Type[] TypeMap = {
 			null,
 			typeof(ClassInstanceNode),
 			typeof(ClassNode),
@@ -77,12 +76,9 @@ namespace ReClassNET.DataExchange
 							})
 							.ForEach(vtableNode.AddNode);
 
-						foreach (var method in vtableNode.Nodes)
+						foreach (var method in vtableNode.Nodes.Where(m => m.Name == "void function()"))
 						{
-							if (method.Name == "void function()")
-							{
-								method.Name = string.Empty;
-							}
+							method.Name = string.Empty;
 						}
 
 						vtables.Add(id, vtableNode);
@@ -155,8 +151,7 @@ namespace ReClassNET.DataExchange
 					var reference = Convert.ToInt32(row["ref"]);
 					if (!classes.ContainsKey(reference))
 					{
-						VTableNode vtableNode;
-						if (!vtables.TryGetValue(reference, out vtableNode))
+						if (!vtables.TryGetValue(reference, out var vtableNode))
 						{
 							logger.Log(LogLevel.Error, $"Skipping node with unknown reference: {row["ref"]}");
 							logger.Log(LogLevel.Warning, string.Join(",", row.ItemArray));
