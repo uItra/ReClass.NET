@@ -50,6 +50,8 @@ namespace ReClassNET.Forms
 				Text = "Find out what accesses " + address.ToString(Constants.StringHexFormat);
 			}
 
+			bannerBox.Text = Text;
+
 			data = new DataTable();
 			data.Columns.Add("counter", typeof(int));
 			data.Columns.Add("instruction", typeof(string));
@@ -99,7 +101,7 @@ namespace ReClassNET.Forms
 
 			sb.AppendLine();
 
-#if WIN64
+#if RECLASSNET64
 			sb.AppendLine($"RAX = {info.DebugInfo.Registers.Rax.ToString(Constants.StringHexFormat)}");
 			sb.AppendLine($"RBX = {info.DebugInfo.Registers.Rbx.ToString(Constants.StringHexFormat)}");
 			sb.AppendLine($"RCX = {info.DebugInfo.Registers.Rcx.ToString(Constants.StringHexFormat)}");
@@ -150,19 +152,16 @@ namespace ReClassNET.Forms
 			var functionStartAddress = disassembler.RemoteGetFunctionStartAddress(process, info.DebugInfo.ExceptionAddress);
 			if (functionStartAddress.IsNull())
 			{
-				MessageBox.Show("Could not find the start of the function. Aborting.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show("Could not find the start of the function. Aborting.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 				return;
 			}
 
-			var node = ClassNode.Create();
-			node.Address = functionStartAddress;
+			var node = LinkedWindowFeatures.CreateClassAtAddress(functionStartAddress, false);
 			node.AddNode(new FunctionNode
 			{
 				Comment = info.Instructions[2].Instruction
 			});
-
-			Program.MainForm.ClassView.SelectedClass = node;
 		}
 
 		private void stopButton_Click(object sender, EventArgs e)

@@ -4,7 +4,7 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using ReClassNET.Nodes;
 
-namespace ReClassNET.DataExchange
+namespace ReClassNET.DataExchange.ReClass
 {
 	public partial class ReClassNetFile : IReClassImport, IReClassExport
 	{
@@ -43,7 +43,7 @@ namespace ReClassNET.DataExchange
 			this.project = project;
 		}
 
-		private static readonly Dictionary<string, Type> BuildInStringToTypeMap = new[]
+		private static readonly Dictionary<string, Type> buildInStringToTypeMap = new[]
 		{
 			typeof(BoolNode),
 			typeof(BitFieldNode),
@@ -70,17 +70,18 @@ namespace ReClassNET.DataExchange
 			typeof(UInt16Node),
 			typeof(UInt32Node),
 			typeof(UInt64Node),
-			typeof(UTF8TextNode),
-			typeof(UTF8TextPtrNode),
-			typeof(UTF16TextNode),
-			typeof(UTF16TextPtrNode),
-			typeof(UTF32TextNode),
-			typeof(UTF32TextPtrNode),
+			typeof(Utf8TextNode),
+			typeof(Utf8TextPtrNode),
+			typeof(Utf16TextNode),
+			typeof(Utf16TextPtrNode),
+			typeof(Utf32TextNode),
+			typeof(Utf32TextPtrNode),
 			typeof(Vector2Node),
 			typeof(Vector3Node),
 			typeof(Vector4Node),
 			typeof(VTableNode)
 		}.ToDictionary(t => t.Name, t => t);
-		private static readonly Dictionary<Type, string> BuildInTypeToStringMap = BuildInStringToTypeMap.ToDictionary(kv => kv.Value, kv => kv.Key);
+
+		private static readonly Dictionary<Type, string> buildInTypeToStringMap = buildInStringToTypeMap.ToDictionary(kv => kv.Value, kv => kv.Key);
 	}
 }

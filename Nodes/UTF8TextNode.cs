@@ -1,9 +1,10 @@
 ﻿using System.Drawing;
+using ReClassNET.Memory;
 using ReClassNET.UI;
 
 namespace ReClassNET.Nodes
 {
-	public class UTF8TextNode : BaseTextNode
+	public class Utf8TextNode : BaseTextNode
 	{
 		public override int CharacterSize => 1;
 
@@ -14,7 +15,12 @@ namespace ReClassNET.Nodes
 		/// <returns>The pixel size the node occupies.</returns>
 		public override Size Draw(ViewInfo view, int x, int y)
 		{
-			return DrawText(view, x, y, "Text8", MemorySize, view.Memory.ReadUTF8String(Offset, MemorySize));
+			return DrawText(view, x, y, "Text8", MemorySize, view.Memory.ReadUtf8String(Offset, MemorySize));
+		}
+
+		public string ReadValueFromMemory(MemoryBuffer memory)
+		{
+			return memory.ReadUtf8String(Offset, MemorySize);
 		}
 	}
 }

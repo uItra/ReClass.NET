@@ -92,10 +92,17 @@ namespace ReClassNET.Core
 		{
 			var c = callbackProcess == null ? null : (EnumerateProcessCallback)delegate (ref EnumerateProcessData data)
 			{
-				callbackProcess(new ProcessInfo(data.Id, data.Path));
+				callbackProcess(new ProcessInfo(data.Id, data.Name, data.Path));
 			};
 
 			currentFunctions.EnumerateProcesses(c);
+		}
+
+		public IList<ProcessInfo> EnumerateProcesses()
+		{
+			var processes = new List<ProcessInfo>();
+			EnumerateProcesses(processes.Add);
+			return processes;
 		}
 
 		public void EnumerateRemoteSectionsAndModules(IntPtr process, Action<Section> callbackSection, Action<Module> callbackModule)
@@ -129,6 +136,14 @@ namespace ReClassNET.Core
 			};
 
 			currentFunctions.EnumerateRemoteSectionsAndModules(process, c1, c2);
+		}
+
+		public void EnumerateRemoteSectionsAndModules(IntPtr process, out List<Section> sections, out List<Module> modules)
+		{
+			sections = new List<Section>();
+			modules = new List<Module>();
+
+			EnumerateRemoteSectionsAndModules(process, sections.Add, modules.Add);
 		}
 
 		public IntPtr OpenRemoteProcess(IntPtr pid, ProcessAccess desiredAccess)

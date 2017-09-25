@@ -10,24 +10,26 @@ namespace ReClassNET.Memory
 	{
 		private byte[] data;
 		private byte[] historyData;
+
 		private bool hasHistory;
 
 		public RemoteProcess Process { get; set; }
 
+		public byte[] RawData => data;
+
 		public int Size
 		{
-			get
-			{
-				return data.Length;
-			}
+			get => data.Length;
 			set
 			{
 				if (value != data.Length)
 				{
 					data = new byte[value];
 					historyData = new byte[value];
-
+					
 					hasHistory = false;
+
+					ContainsValidData = false;
 				}
 			}
 		}
@@ -44,14 +46,20 @@ namespace ReClassNET.Memory
 		}
 
 		public MemoryBuffer()
+			: this(0)
 		{
 			Contract.Ensures(data != null);
 			Contract.Ensures(historyData != null);
+		}
 
-			data = new byte[0];
-			historyData = new byte[0];
+		public MemoryBuffer(int size)
+		{
+			Contract.Requires(size >= 0);
+			Contract.Ensures(data != null);
+			Contract.Ensures(historyData != null);
 
-			ContainsValidData = true;
+			data = new byte[size];
+			historyData = new byte[size];
 		}
 
 		public MemoryBuffer(MemoryBuffer other)
@@ -91,13 +99,15 @@ namespace ReClassNET.Memory
 			{
 				Array.Copy(data, historyData, data.Length);
 
-				hasHistory = true;
+				hasHistory = ContainsValidData;
 			}
 
 			ContainsValidData = Process.ReadRemoteMemoryIntoBuffer(address, ref data);
 			if (!ContainsValidData)
 			{
 				data.FillWithZero();
+
+				hasHistory = false;
 			}
 		}
 
@@ -118,6 +128,11 @@ namespace ReClassNET.Memory
 			}
 
 			return data[Offset + offset];
+		}
+
+		public byte[] ReadBytes(IntPtr offset, int length)
+		{
+			return ReadBytes(offset.ToInt32(), length);
 		}
 
 		public byte[] ReadBytes(int offset, int length)
@@ -169,26 +184,22 @@ namespace ReClassNET.Memory
 			}
 
 			var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-			var obj = Marshal.PtrToStructure(handle.AddrOfPinnedObject() + Offset + offset, typeof(T));
+			var obj = Marshal.PtrToStructure<T>(handle.AddrOfPinnedObject() + Offset + offset);
 			handle.Free();
 
-			if (obj == null)
-			{
-				return default(T);
-			}
-			return (T)obj;
+			return obj;
 		}
 
-		public string ReadPrintableASCIIString(IntPtr offset, int length)
+		public string ReadPrintableAsciiString(IntPtr offset, int length)
 		{
 			Contract.Requires(offset.ToInt32() >= 0);
 			Contract.Requires(length >= 0);
 			Contract.Ensures(Contract.Result<string>() != null);
 
-			return ReadPrintableASCIIString(offset.ToInt32(), length);
+			return ReadPrintableAsciiString(offset.ToInt32(), length);
 		}
 
-		public string ReadPrintableASCIIString(int offset, int length)
+		public string ReadPrintableAsciiString(int offset, int length)
 		{
 			Contract.Requires(offset >= 0);
 			Contract.Requires(length >= 0);
@@ -236,7 +247,7 @@ namespace ReClassNET.Memory
 			return sb.ToString();
 		}
 
-		public string ReadUTF8String(IntPtr offset, int length)
+		public string ReadUtf8String(IntPtr offset, int length)
 		{
 			Contract.Requires(offset.ToInt32() >= 0);
 			Contract.Requires(length >= 0);
@@ -245,7 +256,7 @@ namespace ReClassNET.Memory
 			return ReadString(Encoding.UTF8, offset.ToInt32(), length);
 		}
 
-		public string ReadUTF16String(IntPtr offset, int length)
+		public string ReadUtf16String(IntPtr offset, int length)
 		{
 			Contract.Requires(offset.ToInt32() >= 0);
 			Contract.Requires(length >= 0);
@@ -254,7 +265,7 @@ namespace ReClassNET.Memory
 			return ReadString(Encoding.Unicode, offset.ToInt32(), length);
 		}
 
-		public string ReadUTF32String(IntPtr offset, int length)
+		public string ReadUtf32String(IntPtr offset, int length)
 		{
 			Contract.Requires(offset.ToInt32() >= 0);
 			Contract.Requires(length >= 0);
@@ -270,7 +281,7 @@ namespace ReClassNET.Memory
 
 		public bool HasChanged(int offset, int length)
 		{
-			if (hasHistory)
+			if (!hasHistory)
 			{
 				return false;
 			}
