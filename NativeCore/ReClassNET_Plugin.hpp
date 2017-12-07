@@ -7,6 +7,16 @@
 #include <locale>
 #include <cstring>
 
+// OS Specific
+
+#ifdef __linux__
+	#define RC_CallConv
+#elif _WIN32
+	#define RC_CallConv __stdcall
+#else
+	static_assert(false, "Missing RC_CallConv specification");
+#endif
+
 // Types
 
 using RC_Pointer = void*;
@@ -122,8 +132,10 @@ struct EnumerateProcessData
 
 struct InstructionData
 {
+	RC_Pointer Address;
 	int Length;
 	uint8_t Data[15];
+	int StaticInstructionBytes;
 	RC_UnicodeChar Instruction[64];
 };
 
@@ -250,19 +262,31 @@ struct DebugRegister7
 
 #pragma pack(pop)
 
+typedef void(RC_CallConv EnumerateProcessCallback)(EnumerateProcessData* data);
+
+typedef void(RC_CallConv EnumerateRemoteSectionsCallback)(EnumerateRemoteSectionData* data);
+typedef void(RC_CallConv EnumerateRemoteModulesCallback)(EnumerateRemoteModuleData* data);
+
 // Helpers
 
-inline void MultiByteToUnicode(const char* src, RC_UnicodeChar* dst, int size)
+inline void MultiByteToUnicode(const char* src, const int srcOffset, RC_UnicodeChar* dst, const int dstOffset, const int size)
 {
 #if _MSC_VER >= 1900
 	// VS Bug: https://connect.microsoft.com/VisualStudio/feedback/details/1348277/link-error-when-using-std-codecvt-utf8-utf16-char16-t
 
-	auto temp = std::wstring_convert<std::codecvt_utf8_utf16<int16_t>, int16_t>{}.from_bytes(src);
+	using converter = std::wstring_convert<std::codecvt_utf8_utf16<int16_t>, int16_t>;
 #else
-	auto temp = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(src);
+	using converter = std::wstring_convert<std::codecvt_utf8_utf16<RC_UnicodeChar>, RC_UnicodeChar>;
 #endif
 
-	std::memcpy(dst, temp.c_str(), std::min<int>(static_cast<int>(temp.length()), size) * sizeof(char16_t));
+	const auto temp = converter{}.from_bytes(src + srcOffset);
+
+	std::memcpy(dst + dstOffset, temp.c_str(), std::min<int>(static_cast<int>(temp.length()), size) * sizeof(RC_UnicodeChar));
+}
+
+inline void MultiByteToUnicode(const char* src, RC_UnicodeChar* dst, const int size)
+{
+	MultiByteToUnicode(src, 0, dst, 0, size);
 }
 
 inline char16_t* str16cpy(char16_t* destination, const char16_t* source, size_t n)

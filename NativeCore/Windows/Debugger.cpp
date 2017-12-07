@@ -3,9 +3,9 @@
 
 #include "NativeCore.hpp"
 
-bool __stdcall AttachDebuggerToProcess(RC_Pointer id)
+bool RC_CallConv AttachDebuggerToProcess(RC_Pointer id)
 {
-	if (!DebugActiveProcess(reinterpret_cast<DWORD>(id)))
+	if (!DebugActiveProcess(static_cast<DWORD>(reinterpret_cast<size_t>(id))))
 	{
 		return false;
 	}
@@ -15,12 +15,12 @@ bool __stdcall AttachDebuggerToProcess(RC_Pointer id)
 	return true;
 }
 
-void __stdcall DetachDebuggerFromProcess(RC_Pointer id)
+void RC_CallConv DetachDebuggerFromProcess(RC_Pointer id)
 {
-	DebugActiveProcessStop(reinterpret_cast<DWORD>(id));
+	DebugActiveProcessStop(static_cast<DWORD>(reinterpret_cast<size_t>(id)));
 }
 
-bool __stdcall AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds)
+bool RC_CallConv AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds)
 {
 	DEBUG_EVENT _evt = { };
 	if (!WaitForDebugEvent(&_evt, timeoutInMilliseconds))
@@ -30,8 +30,8 @@ bool __stdcall AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds)
 
 	auto result = false;
 
-	evt->ProcessId = reinterpret_cast<RC_Pointer>(_evt.dwProcessId);
-	evt->ThreadId = reinterpret_cast<RC_Pointer>(_evt.dwThreadId);
+	evt->ProcessId = reinterpret_cast<RC_Pointer>(static_cast<size_t>(_evt.dwProcessId));
+	evt->ThreadId = reinterpret_cast<RC_Pointer>(static_cast<size_t>(_evt.dwThreadId));
 
 	switch (_evt.dwDebugEventCode)
 	{
@@ -49,7 +49,7 @@ bool __stdcall AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds)
 		evt->ExceptionInfo.ExceptionCode = exception.ExceptionRecord.ExceptionCode;
 		evt->ExceptionInfo.ExceptionFlags = exception.ExceptionRecord.ExceptionFlags;
 
-		auto handle = OpenThread(THREAD_GET_CONTEXT, FALSE, _evt.dwThreadId);
+		const auto handle = OpenThread(THREAD_GET_CONTEXT, FALSE, _evt.dwThreadId);
 
 		CONTEXT ctx = { };
 		ctx.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_DEBUG_REGISTERS;
@@ -127,7 +127,7 @@ bool __stdcall AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds)
 	return result;
 }
 
-void __stdcall HandleDebugEvent(DebugEvent* evt)
+void RC_CallConv HandleDebugEvent(DebugEvent* evt)
 {
 	DWORD continueStatus = 0;
 	switch (evt->ContinueStatus)
@@ -140,10 +140,10 @@ void __stdcall HandleDebugEvent(DebugEvent* evt)
 		break;
 	}
 
-	ContinueDebugEvent(reinterpret_cast<DWORD>(evt->ProcessId), reinterpret_cast<DWORD>(evt->ThreadId), continueStatus);
+	ContinueDebugEvent(static_cast<DWORD>(reinterpret_cast<size_t>(evt->ProcessId)), static_cast<DWORD>(reinterpret_cast<size_t>(evt->ThreadId)), continueStatus);
 }
 
-bool __stdcall SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, HardwareBreakpointRegister reg, HardwareBreakpointTrigger type, HardwareBreakpointSize size, bool set)
+bool RC_CallConv SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, HardwareBreakpointRegister reg, HardwareBreakpointTrigger type, HardwareBreakpointSize size, bool set)
 {
 	if (reg == HardwareBreakpointRegister::InvalidRegister)
 	{
@@ -175,7 +175,7 @@ bool __stdcall SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, Hardware
 			lengthValue = 2;
 	}
 
-	auto snapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	const auto snapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
 	if (snapshotHandle != INVALID_HANDLE_VALUE)
 	{
 		THREADENTRY32 te32 = {};
@@ -184,9 +184,9 @@ bool __stdcall SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, Hardware
 		{
 			do
 			{
-				if (te32.th32OwnerProcessID == reinterpret_cast<DWORD>(id))
+				if (te32.th32OwnerProcessID == static_cast<DWORD>(reinterpret_cast<size_t>(id)))
 				{
-					auto threadHandle = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT, FALSE, te32.th32ThreadID);
+					const auto threadHandle = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT, FALSE, te32.th32ThreadID);
 
 					SuspendThread(threadHandle);
 

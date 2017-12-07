@@ -1,26 +1,26 @@
 #pragma once
 
 #include "../ReClassNET_Plugin.hpp"
+#include "../Shared/Keys.hpp"
 
-typedef void(__stdcall *EnumerateProcessCallback)(EnumerateProcessData* data);
+void RC_CallConv EnumerateProcesses(EnumerateProcessCallback callbackProcess);
+void RC_CallConv EnumerateRemoteSectionsAndModules(RC_Pointer handle, EnumerateRemoteSectionsCallback callbackSection, EnumerateRemoteModulesCallback callbackModule);
 
-typedef void(__stdcall EnumerateRemoteSectionsCallback)(EnumerateRemoteSectionData* data);
-typedef void(__stdcall EnumerateRemoteModulesCallback)(EnumerateRemoteModuleData* data);
+RC_Pointer RC_CallConv OpenRemoteProcess(RC_Pointer id, ProcessAccess desiredAccess);
+bool RC_CallConv IsProcessValid(RC_Pointer handle);
+void RC_CallConv CloseRemoteProcess(RC_Pointer handle);
 
-void __stdcall EnumerateProcesses(EnumerateProcessCallback callbackProcess);
-void __stdcall EnumerateRemoteSectionsAndModules(RC_Pointer handle, EnumerateRemoteSectionsCallback callbackSection, EnumerateRemoteModulesCallback callbackModule);
+bool RC_CallConv ReadRemoteMemory(RC_Pointer handle, RC_Pointer address, RC_Pointer buffer, int offset, int size);
+bool RC_CallConv WriteRemoteMemory(RC_Pointer handle, RC_Pointer address, RC_Pointer buffer, int offset, int size);
 
-RC_Pointer __stdcall OpenRemoteProcess(RC_Pointer id, ProcessAccess desiredAccess);
-bool __stdcall IsProcessValid(RC_Pointer handle);
-void __stdcall CloseRemoteProcess(RC_Pointer handle);
+void RC_CallConv ControlRemoteProcess(RC_Pointer handle, ControlRemoteProcessAction action);
 
-bool __stdcall ReadRemoteMemory(RC_Pointer handle, RC_Pointer address, RC_Pointer buffer, int offset, int size);
-bool __stdcall WriteRemoteMemory(RC_Pointer handle, RC_Pointer address, RC_Pointer buffer, int offset, int size);
+bool RC_CallConv AttachDebuggerToProcess(RC_Pointer id);
+void RC_CallConv DetachDebuggerFromProcess(RC_Pointer id);
+bool RC_CallConv AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds);
+void RC_CallConv HandleDebugEvent(DebugEvent* evt);
+bool RC_CallConv SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, HardwareBreakpointRegister reg, HardwareBreakpointTrigger type, HardwareBreakpointSize size, bool set);
 
-void __stdcall ControlRemoteProcess(RC_Pointer handle, ControlRemoteProcessAction action);
-
-bool __stdcall AttachDebuggerToProcess(RC_Pointer id);
-void __stdcall DetachDebuggerFromProcess(RC_Pointer id);
-bool __stdcall AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds);
-void __stdcall HandleDebugEvent(DebugEvent* evt);
-bool __stdcall SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, HardwareBreakpointRegister reg, HardwareBreakpointTrigger type, HardwareBreakpointSize size, bool set);
+RC_Pointer RC_CallConv InitializeInput();
+bool RC_CallConv GetPressedKeys(RC_Pointer handle, Keys* state[], int* count);
+void RC_CallConv ReleaseInput(RC_Pointer handle);

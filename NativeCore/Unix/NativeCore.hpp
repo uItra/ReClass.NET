@@ -4,11 +4,7 @@
 #include <sstream>
 
 #include "../ReClassNET_Plugin.hpp"
-
-typedef void(EnumerateProcessCallback)(EnumerateProcessData* data);
-
-typedef void(EnumerateRemoteSectionsCallback)(EnumerateRemoteSectionData* data);
-typedef void(EnumerateRemoteModulesCallback)(EnumerateRemoteModuleData* data);
+#include "../Shared/Keys.hpp"
 
 extern "C"
 {
@@ -29,6 +25,10 @@ extern "C"
 	bool AwaitDebugEvent(DebugEvent* evt, int timeoutInMilliseconds);
 	void HandleDebugEvent(DebugEvent* evt);
 	bool SetHardwareBreakpoint(RC_Pointer id, RC_Pointer address, HardwareBreakpointRegister reg, HardwareBreakpointTrigger type, HardwareBreakpointSize size, bool set);
+
+	RC_Pointer InitializeInput();
+	bool GetPressedKeys(RC_Pointer handle, Keys* state[], int* count);
+	void ReleaseInput(RC_Pointer handle);
 }
 
 inline bool is_number(const std::string& s)
